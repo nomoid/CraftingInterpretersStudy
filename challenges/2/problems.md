@@ -1,0 +1,5 @@
+1. Looking through the C implementation of the Python programming language (CPython), it appears that the code that implements the scanner and parser are both handwritten in C. In the `python/cpython` GitHub repository, the scanner is located in the `Parser/tokeniser.c` file, and the parser is located in the `Parser/parser.c` file.
+
+2. One reason not to JIT is that a JIT is generally much more complicated to implement than both a compiler and an interpreter. Another downside of a JIT is that there is generally a "warm-up time" where the JIT makes the first run of compiling bytecode into machine code, in an effort to make sure that the machine code generated is optimized.
+
+3. One reason for Lisp implementations to also include an interpreter is so that a developer can work in a REPL (Read Evaluate Print Loop) environment. In this environment, the demands of the developer are that the development cycle in evaluation and running new code is fast, and can be done without restarting the program. This would be more difficult to achieve with Lisp compiled down to C.
