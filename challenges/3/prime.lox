@@ -1,0 +1,46 @@
+fun floor(x) {
+    var y = -1;
+    while (x >= 0) {
+        x = x - 1;
+        y = y + 1;
+    }
+    return y;
+}
+
+// Sqrt function taken from:
+// http://www.codecodex.com/wiki/Calculate_an_integer_square_root
+fun sqrt(n) {
+    if (n == 0) {
+        return 0;
+    }  
+    var x = floor(n / 2) + 1;
+    var y = floor((x + floor(n / x)) / 2);  
+    while (y < x) {  
+        x = y;  
+        y = floor((x + floor(n / x)) / 2);  
+    }
+    return x;  
+}
+
+fun mod(a, b) {
+    return a - floor(a/b) * b;
+}
+
+fun is_prime(n) {
+    if (n < 2) {
+        return false;
+    }
+    var max = sqrt(n) + 1;
+    for (var i = 2; i < max; i = i + 1) {
+        if (mod(n, i) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+for (var i = 0; i < 50; i = i + 1) {
+    if (is_prime(i)) {
+        print i;
+    }
+}

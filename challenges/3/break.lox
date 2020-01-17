@@ -1,0 +1,41 @@
+// Infinite loop:
+// var x = 0;
+// print "Start";
+// while (true) {
+//     x = x + 1;
+// }
+// print "Done";
+
+// Stack overflow:
+// fun f(x) {
+//     x(x);
+// }
+// f(f);
+
+// Self inheritance:
+// class X < X {
+// }
+// X()
+
+// Overwrite class name:
+// class Y {
+//     test() {
+//         print("C");
+//     }
+// }
+// var y0 = Y();
+// class X < Y {
+//     test() {
+//         super.test();
+//         print("B");
+//     }
+// }
+// class Y < X {
+//     test() {
+//         super.test();
+//         print("A");
+//     }
+// }
+// var y1 = Y();
+// y0.test();
+// y1.test();

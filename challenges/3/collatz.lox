@@ -1,0 +1,39 @@
+fun floor(x) {
+    var y = -1;
+    while (x >= 0) {
+        x = x - 1;
+        y = y + 1;
+    }
+    return y;
+}
+
+fun mod(a, b) {
+    return a - floor(a/b) * b;
+}
+
+fun even(n) {
+    return mod(n, 2) == 0;
+}
+
+fun halve(n) {
+    collatz(n / 2);
+}
+
+fun tripleinc(n) {
+    collatz(3 * n + 1);
+}
+
+fun collatz(n) {
+    print n;
+    if (n == 1) {
+        // Done
+    }
+    else if (even(n)) {
+        halve(n);
+    }
+    else {
+        tripleinc(n);
+    }
+}
+
+collatz(100);
