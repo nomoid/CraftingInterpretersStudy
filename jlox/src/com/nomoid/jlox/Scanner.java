@@ -78,6 +78,10 @@ class Scanner {
                         advance();
                     }
                 }
+                else if (match('*')) {
+                    // Multiline comment, NO nesting
+                    multilineComment();
+                }
                 else {
                     addToken(SLASH);
                 }
@@ -179,6 +183,26 @@ class Scanner {
 
         String value = source.substring(start + 1, current - 1);
         addToken(STRING, value);
+    }
+
+    private void multilineComment() {
+        while (!(current + 1 >= source.length()) &&
+               (peek() != '*' || peekNext() != '/')) {
+            if (peek() == '\n') {
+                line++;
+            }
+            advance();
+        }
+        // Unterminated comment
+        if (current + 1 >= source.length()) {
+            Lox.error(line, "Unterminated comment.");
+            return;
+        }
+        // Advance the closing */
+        advance();
+        advance();
+
+        // Since we are in a comment, ignore its contents
     }
 
     private void number() {
