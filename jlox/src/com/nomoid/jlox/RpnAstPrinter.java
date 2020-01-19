@@ -3,6 +3,7 @@ package com.nomoid.jlox;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Literal;
+import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.Unary;
 import com.nomoid.jlox.Expr.Visitor;
 
@@ -33,6 +34,11 @@ class RpnAstPrinter implements Visitor<String> {
     @Override
     public String visitUnaryExpr(Unary expr) {
         return rpn(expr.operator.lexeme, expr.right);
+    }
+
+    @Override
+    public String visitTernaryExpr(Ternary expr) {
+        return rpn(expr.operator.lexeme, expr.left, expr.center, expr.right);
     }
 
     private String rpn(String name, Expr... exprs) {

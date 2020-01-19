@@ -3,6 +3,7 @@ package com.nomoid.jlox;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Literal;
+import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.Unary;
 
 // Creates an unambiguous Lisp-like string representation of AST nodes
@@ -32,6 +33,11 @@ class AstPrinter implements Expr.Visitor<String> {
     @Override
     public String visitUnaryExpr(Unary expr) {
         return parenthesize(expr.operator.lexeme, expr.right);
+    }
+
+    @Override
+    public String visitTernaryExpr(Ternary expr) {
+        return parenthesize(expr.operator.lexeme, expr.left, expr.center, expr.right);
     }
 
     private String parenthesize(String name, Expr... exprs) {

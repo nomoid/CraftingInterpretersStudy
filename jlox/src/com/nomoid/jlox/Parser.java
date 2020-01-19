@@ -5,7 +5,10 @@ import java.util.List;
 import static com.nomoid.jlox.TokenType.*;
 
 class Parser {
-    private static class ParseError extends RuntimeException {}
+    private static class ParseError extends RuntimeException {
+        // SerialVersionUID to suppress warning
+        private static final long serialVersionUID = 1L;
+    }
 
     private final List<Token> tokens;
     private int current = 0;
@@ -16,20 +19,60 @@ class Parser {
 
     Expr parse() {
         try {
-            return expression();
+            Expr expr = expression();
+            if (!isAtEnd()) {
+                throw error(peek(), "Unconsumed token.");
+            }
+            return expr;
         }
         catch (ParseError error) {
             return null;
         }
     }
 
-    // expression     → equality ;
+    // expression     → comma ;
     private Expr expression() {
-        return equality();
+        return comma();
+    }
+
+    // comma          → ternary ( "," ternary )* ;
+    private Expr comma() {
+        if (match(COMMA)) {
+            ternary();
+            throw error(previous(), "Unary operator not supported.");
+        }
+        Expr expr = ternary();
+        while (match(COMMA)) {
+            Token operator = previous();
+            Expr right = ternary();
+            expr = new Expr.Binary(expr, operator, right);
+        }
+        return expr;
+    }
+
+    // ternary     → equality ("?" equality ":" equality)? ;
+    private Expr ternary() {
+        if (match(QUESTION, COLON)) {
+            equality();
+            throw error(previous(), "Unary operator not supported.");
+        }
+        Expr expr = equality();
+        if (match(QUESTION)) {
+            Token operator = previous();
+            Expr center = equality();
+            consume(COLON, "Expect ':' in ternary comparison.");
+            Expr right = equality();
+            expr = new Expr.Ternary(expr, operator, center, right);
+        }
+        return expr;
     }
 
     // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
     private Expr equality() {
+        if (match(BANG_EQUAL, EQUAL_EQUAL)) {
+            comparison();
+            throw error(previous(), "Unary operator not supported.");
+        }
         Expr expr = comparison();
         while (match(BANG_EQUAL, EQUAL_EQUAL)) {
             Token operator = previous();
@@ -41,6 +84,10 @@ class Parser {
 
     // comparison     → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
     private Expr comparison() {
+        if (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
+            addition();
+            throw error(previous(), "Unary operator not supported.");
+        }
         Expr expr = addition();
         while (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
             Token operator = previous();
@@ -52,6 +99,11 @@ class Parser {
 
     // addition       → multiplication ( ( "-" | "+" ) multiplication )* ;
     private Expr addition() {
+        // Note: Unary MINUS is supported
+        if (match(PLUS)) {
+            multiplication();
+            throw error(previous(), "Unary operator not supported.");
+        }
         Expr expr = multiplication();
         while (match(MINUS, PLUS)) {
             Token operator = previous();
@@ -63,6 +115,10 @@ class Parser {
 
     // multiplication → unary ( ( "/" | "*" ) unary )* ;
     private Expr multiplication() {
+        if (match(SLASH, STAR)) {
+            unary();
+            throw error(previous(), "Unary operator not supported.");
+        }
         Expr expr = unary();
         while (match(SLASH, STAR)) {
             Token operator = previous();
