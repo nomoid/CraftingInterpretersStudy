@@ -1,5 +1,6 @@
 package com.nomoid.jlox;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.nomoid.jlox.TokenType.*;
@@ -17,17 +18,85 @@ class Parser {
         this.tokens = tokens;
     }
 
-    Expr parse() {
+    // program     → declaration* EOF ;
+    List<Stmt> parse() {
         try {
-            Expr expr = expression();
-            if (!isAtEnd()) {
-                throw error(peek(), "Unconsumed token.");
+            List<Stmt> statements = new ArrayList<>();
+            while (!isAtEnd()) {
+                statements.add(declaration());
             }
-            return expr;
+            return statements;
         }
         catch (ParseError error) {
             return null;
         }
+    }
+
+    // declaration → varDecl
+    //             | statement ;
+    private Stmt declaration() {
+        try {
+            if (match(VAR)) {
+                return varDeclaration();
+            }
+            return statement();
+        }
+        catch (ParseError error) {
+            synchronize();
+            return null;
+        }
+    }
+
+    // varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
+    private Stmt varDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect variable name.");
+
+        Expr initializer = null;
+        if (match(EQUAL)) {
+            initializer = expression();
+        }
+
+        consume(SEMICOLON, "Expect ';' after variable declaration.");
+        return new Stmt.Var(name, initializer);
+    }
+
+    // statement   → exprStmt
+    //             | printStmt ;
+    //             | block ;
+    private Stmt statement() {
+        if (match(PRINT)) {
+            return printStatement();
+        }
+        if (match(LEFT_BRACE)) {
+            return new Stmt.Block(block());
+        }
+        return expressionStatement();
+    }
+
+    // block     → "{" declaration* "}" ;
+    private List<Stmt> block() {
+        List<Stmt> statements = new ArrayList<>();
+
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        consume(RIGHT_BRACE, "Expect '}' after block.");
+        return statements;
+    }
+
+    // printStmt → "print" expression ";" ;
+    private Stmt printStatement() {
+        Expr value = expression();
+        consume(SEMICOLON, "Expect ';' after value.");
+        return new Stmt.Print(value);
+    }
+
+    // exprStmt  → expression ";" ;
+    private Stmt expressionStatement() {
+        Expr value = expression();
+        consume(SEMICOLON, "Expect ';' after expression.");
+        return new Stmt.Expression(value);
     }
 
     // expression     → comma ;
@@ -35,18 +104,39 @@ class Parser {
         return comma();
     }
 
-    // comma          → ternary ( "," ternary )* ;
+    // comma          → assignment ( "," assignment )* ;
     private Expr comma() {
         if (match(COMMA)) {
+            assignment();
+            throw error(previous(), "Unary operator not supported.");
+        }
+        Expr expr = assignment();
+        while (match(COMMA)) {
+            Token operator = previous();
+            Expr right = assignment();
+            expr = new Expr.Binary(expr, operator, right);
+        }
+        return expr;
+    }
+
+    // assignment → IDENTIFIER ( "+" | "-" | "*" | "/" )? "=" assignment
+    //            | equality ;
+    private Expr assignment() {
+        if (match(EQUAL, PLUS_EQUAL, MINUS_EQUAL, STAR_EQUAL, SLASH_EQUAL)) {
             ternary();
             throw error(previous(), "Unary operator not supported.");
         }
         Expr expr = ternary();
-        while (match(COMMA)) {
-            Token operator = previous();
-            Expr right = ternary();
-            expr = new Expr.Binary(expr, operator, right);
+        if (match(EQUAL, PLUS_EQUAL, MINUS_EQUAL, STAR_EQUAL, SLASH_EQUAL)) {
+            Token equals = previous();
+            Expr value = assignment();
+            if (expr instanceof Expr.Variable) {
+                Token name = ((Expr.Variable)expr).name;
+                return new Expr.Assign(name, equals, value);
+            }
+            error(equals, "Invalid assignment target.");
         }
+
         return expr;
     }
 
@@ -155,6 +245,10 @@ class Parser {
 
         if (match(NUMBER, STRING)) {
             return new Expr.Literal(previous().literal);
+        }
+
+        if (match(IDENTIFIER)) {
+            return new Expr.Variable(previous());
         }
 
         if (match(LEFT_PAREN)) {

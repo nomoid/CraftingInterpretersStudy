@@ -1,10 +1,12 @@
 package com.nomoid.jlox;
 
+import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.Unary;
+import com.nomoid.jlox.Expr.Variable;
 
 // Creates an unambiguous Lisp-like string representation of AST nodes
 class AstPrinter implements Expr.Visitor<String> {
@@ -40,6 +42,16 @@ class AstPrinter implements Expr.Visitor<String> {
         return parenthesize(expr.operator.lexeme, expr.left, expr.center, expr.right);
     }
 
+    @Override
+    public String visitVariableExpr(Variable expr) {
+        return "$" + expr.name.lexeme;
+    }
+
+    @Override
+    public String visitAssignExpr(Assign expr) {
+        return parenthesize(expr.operator.lexeme, new Variable(expr.name), expr.value);
+    }
+
     private String parenthesize(String name, Expr... exprs) {
         StringBuilder builder = new StringBuilder();
 
@@ -55,12 +67,8 @@ class AstPrinter implements Expr.Visitor<String> {
 
     public static void main(String[] args) {
         Expr expression = new Expr.Binary(
-            new Expr.Unary(
-                new Token(TokenType.MINUS, "-", null, 1),
-                new Expr.Literal(123)),
-            new Token(TokenType.STAR, "*", null, 1),
-            new Expr.Grouping(
-                new Expr.Literal(45.67)));
+                new Expr.Unary(new Token(TokenType.MINUS, "-", null, 1), new Expr.Literal(123)),
+                new Token(TokenType.STAR, "*", null, 1), new Expr.Grouping(new Expr.Literal(45.67)));
 
         System.out.println(new AstPrinter().print(expression));
     }

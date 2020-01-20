@@ -63,10 +63,10 @@ class Scanner {
             case '}': addToken(RIGHT_BRACE); break;    
             case ',': addToken(COMMA); break;          
             case '.': addToken(DOT); break;            
-            case '-': addToken(MINUS); break;          
-            case '+': addToken(PLUS); break;           
+            case '-': addToken(match('=') ? MINUS_EQUAL : MINUS); break;          
+            case '+': addToken(match('=') ? PLUS_EQUAL : PLUS); break;           
             case ';': addToken(SEMICOLON); break;      
-            case '*': addToken(STAR); break;
+            case '*': addToken(match('=') ? STAR_EQUAL : STAR); break;
             case '?': addToken(QUESTION); break;
             case ':': addToken(COLON); break;
             case '!': addToken(match('=') ? BANG_EQUAL : BANG); break;      
@@ -83,6 +83,9 @@ class Scanner {
                 else if (match('*')) {
                     // Multiline comment, NO nesting
                     multilineComment();
+                }
+                else if (match('=')) {
+                    addToken(SLASH_EQUAL);
                 }
                 else {
                     addToken(SLASH);
