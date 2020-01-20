@@ -1,6 +1,7 @@
 package com.nomoid.jlox;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.nomoid.jlox.TokenType.*;
@@ -74,16 +75,103 @@ class Parser {
     }
 
     // statement   → exprStmt
-    //             | printStmt ;
+    //             | forStmt
+    //             | ifStmt
+    //             | printStmt
+    //             | whileStmt
     //             | block ;
     private Stmt statement() {
+        if (match(FOR)) {
+            return forStatement();
+        }
+        if (match(IF)) {
+            return ifStatement();
+        }
         if (match(PRINT)) {
             return printStatement();
+        }
+        if (match(WHILE)) {
+            return whileStatement();
         }
         if (match(LEFT_BRACE)) {
             return new Stmt.Block(block());
         }
         return expressionStatement();
+    }
+
+    // forStmt   → "for" "(" ( varDecl | exprStmt | ";" )
+    //                       expression? ";"
+    //                       expression? ")" statement ;
+    private Stmt forStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'for'.");
+        Stmt initializer;
+        if (match(SEMICOLON)) {
+            initializer = null;
+        }
+        else if (match(VAR)) {
+            initializer = varDeclaration();
+        }
+        else {
+            initializer = expressionStatement();
+        }
+
+        Expr condition = null;
+        if (!check(SEMICOLON)) {
+            condition = expression();
+        }
+        consume(SEMICOLON, "Expect ';' after loop condition.");
+
+        Expr increment = null;
+        if (!check(RIGHT_PAREN)) {
+            increment = expression();
+        }
+        consume(RIGHT_PAREN, "Expect ')' after for clauses");
+
+        Stmt body = statement();
+
+        if (increment != null) {
+            body = new Stmt.Block(Arrays.asList(
+                body,
+                new Stmt.Expression(increment)
+            ));
+        }
+
+        if (condition == null) {
+            condition = new Expr.Literal(true);
+        }
+        body = new Stmt.While(condition, body);
+
+        if (initializer != null) {
+            body = new Stmt.Block(Arrays.asList(initializer, body));
+        }
+        
+        return body;
+    }
+
+    // ifStmt    → "if" "(" expression ")" statement ( "else" statement )? ;
+    private Stmt ifStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'if'.");
+        Expr condition = expression();
+        consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+        Stmt thenBranch = statement();
+        Stmt elseBranch = null;
+        if (match(ELSE)) {
+            elseBranch = statement();
+        }
+
+        return new Stmt.If(condition, thenBranch, elseBranch);
+    }
+
+    // whileStmt → "while" "(" expression ")" statement ;
+    private Stmt whileStatement() {
+        consume(LEFT_PAREN, "Expect '(' after 'while'.");
+        Expr condition = expression();
+        consume(RIGHT_PAREN, "Expect ')' after while condition.");
+
+        Stmt body = statement();
+
+        return new Stmt.While(condition, body);
     }
 
     // block     → "{" declaration* "}" ;
@@ -133,7 +221,7 @@ class Parser {
     }
 
     // assignment → IDENTIFIER ( "+" | "-" | "*" | "/" )? "=" assignment
-    //            | equality ;
+    //            | ternary ;
     private Expr assignment() {
         if (match(EQUAL, PLUS_EQUAL, MINUS_EQUAL, STAR_EQUAL, SLASH_EQUAL)) {
             ternary();
@@ -153,20 +241,52 @@ class Parser {
         return expr;
     }
 
-    // ternary     → equality ("?" equality ":" equality)? ;
+    // ternary     → logic_or ("?" logic_or ":" logic_or)? ;
     private Expr ternary() {
         if (match(QUESTION, COLON)) {
+            or();
+            throw error(previous(), "Unary operator not supported.");
+        }
+        Expr expr = or();
+        if (match(QUESTION)) {
+            Token operator = previous();
+            Expr center = or();
+            consume(COLON, "Expect ':' in ternary comparison.");
+            Expr right = or();
+            expr = new Expr.Ternary(expr, operator, center, right);
+        }
+        return expr;
+    }
+
+    // logic_or   → logic_and ( "or" logic_and )* ;
+    private Expr or() {
+        if (match(OR)) {
+            and();
+            throw error(previous(), "Unary operator not supported.");
+        }
+        Expr expr = and();
+        if (match(OR)) {
+            Token operator = previous();
+            Expr right = and();
+            expr = new Expr.Logical(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    // logic_and  → equality ( "and" equality )* ;
+    private Expr and() {
+        if (match(AND)) {
             equality();
             throw error(previous(), "Unary operator not supported.");
         }
         Expr expr = equality();
-        if (match(QUESTION)) {
+        if (match(AND)) {
             Token operator = previous();
-            Expr center = equality();
-            consume(COLON, "Expect ':' in ternary comparison.");
             Expr right = equality();
-            expr = new Expr.Ternary(expr, operator, center, right);
+            expr = new Expr.Logical(expr, operator, right);
         }
+
         return expr;
     }
 

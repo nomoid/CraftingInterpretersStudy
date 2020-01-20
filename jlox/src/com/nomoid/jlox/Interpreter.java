@@ -6,13 +6,16 @@ import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Literal;
+import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.Unary;
 import com.nomoid.jlox.Expr.Variable;
 import com.nomoid.jlox.Stmt.Block;
 import com.nomoid.jlox.Stmt.Expression;
+import com.nomoid.jlox.Stmt.If;
 import com.nomoid.jlox.Stmt.Print;
 import com.nomoid.jlox.Stmt.Var;
+import com.nomoid.jlox.Stmt.While;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     private Environment environment = new Environment();
@@ -38,8 +41,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             for (Stmt statement : statements) {
                 execute(statement);
             }
-        }
-        finally {
+        } finally {
             this.environment = previous;
         }
     }
@@ -107,7 +109,6 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Object visitAssignExpr(Assign expr) {
-
         Token binaryOp = null;
         switch (expr.operator.type) {
         case PLUS_EQUAL:
@@ -140,6 +141,21 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Object visitLogicalExpr(Logical expr) {
+        Object left = evaluate(expr.left);
+        if (expr.operator.type == TokenType.OR) {
+            if (isTruthy(left)) {
+                return left;
+            }
+        } else {
+            if (!isTruthy(left)) {
+                return left;
+            }
+        }
+        return evaluate(expr.right);
+    }
+
+    @Override
     public Void visitExpressionStmt(Expression stmt) {
         evaluate(stmt.expression);
         return null;
@@ -157,8 +173,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object value = null;
         if (stmt.initializer != null) {
             value = evaluate(stmt.initializer);
-        }
-        else {
+        } else {
             value = Environment.UNINITIALIZED;
         }
         environment.define(stmt.name.lexeme, value);
@@ -168,6 +183,24 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitBlockStmt(Block stmt) {
         executeBlock(stmt.statements, new Environment(environment));
+        return null;
+    }
+
+    @Override
+    public Void visitIfStmt(If stmt) {
+        if (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.thenBranch);
+        } else if (stmt.elseBranch != null) {
+            execute(stmt.elseBranch);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitWhileStmt(While stmt) {
+        while(isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.body);
+        }
         return null;
     }
 

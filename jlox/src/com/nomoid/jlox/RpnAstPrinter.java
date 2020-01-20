@@ -4,6 +4,7 @@ import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Literal;
+import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.Unary;
 import com.nomoid.jlox.Expr.Variable;
@@ -51,6 +52,11 @@ class RpnAstPrinter implements Visitor<String> {
     @Override
     public String visitAssignExpr(Assign expr) {
         return rpn(expr.operator.lexeme, new Variable(expr.name), expr.value);
+    }
+    
+    @Override
+    public String visitLogicalExpr(Logical expr) {
+        return rpn(expr.operator.lexeme, expr.left, expr.right);
     }
 
     private String rpn(String name, Expr... exprs) {
