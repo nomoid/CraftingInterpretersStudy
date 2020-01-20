@@ -122,7 +122,7 @@ class Parser {
         Expr expr = unary();
         while (match(SLASH, STAR)) {
             Token operator = previous();
-            Expr right = multiplication();
+            Expr right = unary();
             expr = new Expr.Binary(expr, operator, right);
         }
         return expr;
