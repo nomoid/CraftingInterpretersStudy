@@ -32,6 +32,19 @@ class Parser {
         }
     }
 
+    Expr parseExpression() {
+        try {
+            Expr expr = expression();
+            if (!isAtEnd()) {
+                throw error(peek(), "Unconsumed token.");
+            }
+            return expr;
+        }
+        catch (ParseError error) {
+            return null;
+        }
+    }
+
     // declaration → varDecl
     //             | statement ;
     private Stmt declaration() {

@@ -158,6 +158,9 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         if (stmt.initializer != null) {
             value = evaluate(stmt.initializer);
         }
+        else {
+            value = Environment.UNINITIALIZED;
+        }
         environment.define(stmt.name.lexeme, value);
         return null;
     }

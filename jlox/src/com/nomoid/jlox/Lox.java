@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 
 public class Lox {
@@ -14,6 +15,7 @@ public class Lox {
 
     static boolean hadError = false;
     static boolean hadRuntimeError = false;
+    static boolean suppressErrors = false;
 
     public static void main(String[] args) throws IOException {
         if (args.length > 1) {
@@ -30,7 +32,7 @@ public class Lox {
 
     private static void runFile(String path) throws IOException {
         byte[] bytes = Files.readAllBytes(Paths.get(path));
-        run(new String(bytes, Charset.defaultCharset()));
+        run(new String(bytes, Charset.defaultCharset()), false);
 
         if (hadError) {
             System.exit(65);
@@ -46,16 +48,33 @@ public class Lox {
 
         while (true) {
             System.out.print("> ");
-            run(reader.readLine());
+            run(reader.readLine(), true);
             hadError = false;
             hadRuntimeError = false;
         }
     }
 
-    private static void run(String source) {
+    private static void run(String source, boolean repl) {
         Scanner scanner = new Scanner(source);
         List<Token> tokens = scanner.scanTokens();
         Parser parser = new Parser(tokens);
+        if (repl) {
+            suppressErrors = true;
+            // Parse expression
+            Expr expression = parser.parseExpression();
+
+            if (hadError) {
+                hadError = false;
+                suppressErrors = false;
+                parser = new Parser(tokens);
+            }
+            else {
+                suppressErrors = false;
+                interpreter.interpret(Arrays.asList(new Stmt.Print(expression)));
+                return;
+            }            
+        }
+        // Parse statements
         List<Stmt> statements = parser.parse();
 
         if (hadError) {
@@ -79,14 +98,20 @@ public class Lox {
     }
 
     static void runtimeError(RuntimeError error) {
+        hadRuntimeError = true;
+        if (suppressErrors) {
+            return;
+        }
         System.err.println(error.getMessage() +
             "\n[line " + error.token.line + "]");
-        hadRuntimeError = true;
     }
 
     private static void report(int line, String where, String message) {
+        hadError = true;
+        if (suppressErrors) {
+            return;
+        }
         System.err.println(
             "[line " + line + "] Error" + where + ": " + message);
-        hadError = true;
     }
 }
