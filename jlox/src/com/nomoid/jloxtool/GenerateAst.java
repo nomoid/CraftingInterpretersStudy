@@ -25,6 +25,7 @@ public class GenerateAst {
         ));
         defineAst(outputDir, "Stmt", Arrays.asList(
             "Block      : List<Stmt> statements",
+            "Break      : Token token",
             "Expression : Expr expression",
             "If         : Expr condition, Stmt thenBranch, Stmt elseBranch",
             "Print      : Expr expression",
@@ -49,7 +50,10 @@ public class GenerateAst {
         for (String type : types) {
             String[] parts = type.split(":");
             String className = parts[0].trim();
-            String fields = parts[1].trim();
+            String fields = "";
+            if (parts.length > 1) {
+                fields = parts[1].trim();
+            }
             defineType(writer, baseName, className, fields);
         }
 
@@ -68,9 +72,13 @@ public class GenerateAst {
             baseName + " {"));
         // Constructor
         writer.println(indent(2, className + "(" + fieldList + ") {"));
-        
+
+        String[] fields = new String[0];
         // Store parameters in fields
-        String[] fields = fieldList.split(", ");
+        if (fieldList.length() > 0) {
+            fields = fieldList.split(", ");
+        }
+
         for (String field : fields) {
             String name = field.split(" ")[1];
             writer.println(indent(3, "this." + name + " = " + name + ";"));

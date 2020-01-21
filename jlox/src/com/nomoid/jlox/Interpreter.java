@@ -11,6 +11,7 @@ import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.Unary;
 import com.nomoid.jlox.Expr.Variable;
 import com.nomoid.jlox.Stmt.Block;
+import com.nomoid.jlox.Stmt.Break;
 import com.nomoid.jlox.Stmt.Expression;
 import com.nomoid.jlox.Stmt.If;
 import com.nomoid.jlox.Stmt.Print;
@@ -22,8 +23,14 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     void interpret(List<Stmt> statements) {
         try {
-            for (Stmt statement : statements) {
-                execute(statement);
+            try {
+                for (Stmt statement : statements) {
+                    execute(statement);
+                }
+            }
+            catch (BreakError error) {
+                throw new RuntimeError(error.token,
+                    "Unexpected break outside of for or while block.");
             }
         } catch (RuntimeError error) {
             Lox.runtimeError(error);
@@ -198,10 +205,20 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitWhileStmt(While stmt) {
-        while(isTruthy(evaluate(stmt.condition))) {
-            execute(stmt.body);
+        try {
+            while (isTruthy(evaluate(stmt.condition))) {
+                execute(stmt.body);
+            }
+        }
+        catch (BreakError error) {
+            // Break out of for/while loop
         }
         return null;
+    }
+    
+    @Override
+    public Void visitBreakStmt(Break stmt) {
+        throw new BreakError(stmt.token);
     }
 
     private Object binaryOp(Object left, Token operator, Object right) {

@@ -74,13 +74,17 @@ class Parser {
         return new Stmt.Var(name, initializer);
     }
 
-    // statement   → exprStmt
+    // statement   → breakStmt
+    //             | exprStmt
     //             | forStmt
     //             | ifStmt
     //             | printStmt
     //             | whileStmt
     //             | block ;
     private Stmt statement() {
+        if (match(BREAK)) {
+            return breakStatement();
+        }
         if (match(FOR)) {
             return forStatement();
         }
@@ -97,6 +101,13 @@ class Parser {
             return new Stmt.Block(block());
         }
         return expressionStatement();
+    }
+
+    // breakStmt → "break" ";" ;
+    private Stmt breakStatement() {
+        Token token = previous();
+        consume(SEMICOLON, "Expect ';' after value.");
+        return new Stmt.Break(token);
     }
 
     // forStmt   → "for" "(" ( varDecl | exprStmt | ";" )
