@@ -1,7 +1,9 @@
 package com.nomoid.jlox;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
@@ -26,6 +28,7 @@ import com.nomoid.jlox.Stmt.While;
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     final Environment globals = new Environment();
     private Environment environment = globals;
+    private final Map<Expr, Integer> locals = new HashMap<>();
 
     Interpreter() {
         globals.define("clock", new LoxCallable() {
@@ -83,6 +86,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return expr.accept(this);
     }
 
+    void resolve(Expr expr, int depth) {
+        locals.put(expr, depth);
+    }
+
     @Override
     public Object visitBinaryExpr(Binary expr) {
         Object left = evaluate(expr.left);
@@ -113,7 +120,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             return -(double) right;
         default:
             // Unreachable code
-            throw new RuntimeError(expr.operator, "Illegal unary operator.");
+            throw new InterpreterException(expr.operator, "Illegal unary operator.");
         }
     }
 
@@ -131,13 +138,13 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             }
         default:
             // Unreachable code
-            throw new RuntimeError(expr.operator, "Illegal ternary operator.");
+            throw new InterpreterException(expr.operator, "Illegal ternary operator.");
         }
     }
 
     @Override
     public Object visitVariableExpr(Variable expr) {
-        return environment.get(expr.name);
+        return lookUpVariable(expr.name, expr);
     }
 
     @Override
@@ -161,15 +168,27 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             break;
         default:
             // Unreachable code
-            throw new RuntimeError(expr.operator, "Illegal asign operator.");
+            throw new InterpreterException(expr.operator, "Illegal asign operator.");
         }
 
         Object value = evaluate(expr.value);
+        Integer distance = locals.get(expr);
         if (binaryOp != null) {
-            Object original = environment.get(expr.name);
+            Object original;
+            if (distance != null) {
+                original = environment.getAt(distance, expr.name);
+            }
+            else {
+                original = globals.get(expr.name);
+            }
             value = binaryOp(original, binaryOp, value);
         }
-        environment.assign(expr.name, value);
+        if (distance != null) {
+            environment.assignAt(distance, expr.name, value);
+        }
+        else {
+            globals.assign(expr.name, value);
+        }
         return value;
     }
 
@@ -331,7 +350,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             return (double) left * (double) right;
         default:
             // Unreachable code
-            throw new RuntimeError(operator, "Illegal binary operator.");
+            throw new InterpreterException(operator, "Illegal binary operator.");
         }
     }
 
@@ -388,5 +407,15 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     private Token derivedToken(Token token, TokenType newType) {
         return new Token(newType, token.lexeme, null, token.line);
+    }
+
+    private Object lookUpVariable(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            return environment.getAt(distance, name);
+        }
+        else {
+            return globals.get(name);
+        }
     }
 }

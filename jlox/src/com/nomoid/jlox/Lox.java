@@ -58,6 +58,7 @@ public class Lox {
         Scanner scanner = new Scanner(source);
         List<Token> tokens = scanner.scanTokens();
         Parser parser = new Parser(tokens);
+        List<Stmt> statements = null;
         if (repl) {
             suppressErrors = true;
             // Parse expression
@@ -70,12 +71,21 @@ public class Lox {
             }
             else {
                 suppressErrors = false;
-                interpreter.interpret(Arrays.asList(new Stmt.Print(expression)));
-                return;
+                statements = Arrays.asList(new Stmt.Print(expression));
             }            
         }
-        // Parse statements
-        List<Stmt> statements = parser.parse();
+        if (statements == null) {
+            // Parse statements
+            statements = parser.parse();
+
+            if (hadError) {
+                return;
+            }
+        }
+        
+        // Run resolver
+        Resolver resolver = new Resolver(interpreter);
+        resolver.resolve(statements);
 
         if (hadError) {
             return;

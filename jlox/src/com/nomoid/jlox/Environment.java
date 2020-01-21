@@ -52,4 +52,35 @@ class Environment {
         throw new RuntimeError(name,
             "Undefined variable '" + name.lexeme + "'.");
     }
+
+    Object getAt(int distance, Token name) {
+        Object value = ancestor(distance).values.get(name.lexeme);
+        if (value == null) {
+            // Unreachable code
+            throw new InterpreterException(name,
+                "Resolved name not found in environment.");
+        }
+        if (value == UNINITIALIZED) {
+            throw new RuntimeError(name,
+                "Unintialized variable '" + name.lexeme + "'.");
+        }
+        return value;
+    }
+
+    void assignAt(int distance, Token name, Object value) {
+        Environment environment = ancestor(distance);
+        if (!environment.values.containsKey(name.lexeme)) {
+            throw new InterpreterException(name,
+                "Resolved name not found in environment.");
+        }
+        environment.values.put(name.lexeme, value);
+    }
+
+    Environment ancestor(int distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; i++) {
+            environment = environment.enclosing;
+        }
+        return environment;
+    }
 }
