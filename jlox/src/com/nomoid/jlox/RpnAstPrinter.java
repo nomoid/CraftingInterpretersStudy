@@ -2,7 +2,9 @@ package com.nomoid.jlox;
 
 import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
+import com.nomoid.jlox.Expr.Call;
 import com.nomoid.jlox.Expr.Grouping;
+import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Ternary;
@@ -57,6 +59,17 @@ class RpnAstPrinter implements Visitor<String> {
     @Override
     public String visitLogicalExpr(Logical expr) {
         return rpn(expr.operator.lexeme, expr.left, expr.right);
+    }
+
+    @Override
+    public String visitCallExpr(Call expr) {
+        return rpn(expr.callee.accept(this),
+            expr.arguments.toArray(new Expr[]{})); 
+    }
+
+    @Override
+    public String visitLambdaExpr(Lambda expr) {
+        throw new UnsupportedOperationException("Lambda expressions are not currently supported.");
     }
 
     private String rpn(String name, Expr... exprs) {

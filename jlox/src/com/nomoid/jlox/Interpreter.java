@@ -1,10 +1,13 @@
 package com.nomoid.jlox;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
+import com.nomoid.jlox.Expr.Call;
 import com.nomoid.jlox.Expr.Grouping;
+import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Ternary;
@@ -13,13 +16,36 @@ import com.nomoid.jlox.Expr.Variable;
 import com.nomoid.jlox.Stmt.Block;
 import com.nomoid.jlox.Stmt.Break;
 import com.nomoid.jlox.Stmt.Expression;
+import com.nomoid.jlox.Stmt.Function;
 import com.nomoid.jlox.Stmt.If;
 import com.nomoid.jlox.Stmt.Print;
+import com.nomoid.jlox.Stmt.Return;
 import com.nomoid.jlox.Stmt.Var;
 import com.nomoid.jlox.Stmt.While;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
-    private Environment environment = new Environment();
+    final Environment globals = new Environment();
+    private Environment environment = globals;
+
+    Interpreter() {
+        globals.define("clock", new LoxCallable() {
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> arguments) {
+                return (double) System.currentTimeMillis() / 1000;
+            }
+
+            @Override
+            public int arity() {
+                return 0;
+            }
+
+            @Override
+            public String toString() {
+                return "<native fn clock>";
+            }
+        });
+    }
 
     void interpret(List<Stmt> statements) {
         try {
@@ -27,10 +53,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 for (Stmt statement : statements) {
                     execute(statement);
                 }
-            }
-            catch (BreakError error) {
-                throw new RuntimeError(error.token,
-                    "Unexpected break outside of for or while block.");
+            } catch (BreakError error) {
+                throw new RuntimeError(error.token, "Unexpected break outside of for or while block.");
+            } catch (ReturnError error) {
+                throw new RuntimeError(error.token, "Unexpected return outside of function declaration.");
             }
         } catch (RuntimeError error) {
             Lox.runtimeError(error);
@@ -163,6 +189,32 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Object visitCallExpr(Call expr) {
+        Object callee = evaluate(expr.callee);
+
+        List<Object> arguments = new ArrayList<>();
+        for (Expr argument : expr.arguments) {
+            arguments.add(evaluate(argument));
+        }
+
+        if (!(callee instanceof LoxCallable)) {
+            throw new RuntimeError(expr.paren, "Can only call functions and classes");
+        }
+
+        LoxCallable function = (LoxCallable) callee;
+        if (arguments.size() != function.arity()) {
+            throw new RuntimeError(expr.paren,
+                    "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+        }
+        return function.call(this, arguments);
+    }
+
+    @Override
+    public Object visitLambdaExpr(Lambda expr) {
+        return new LoxFunction(expr, environment);
+    }
+
+    @Override
     public Void visitExpressionStmt(Expression stmt) {
         evaluate(stmt.expression);
         return null;
@@ -209,16 +261,31 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             while (isTruthy(evaluate(stmt.condition))) {
                 execute(stmt.body);
             }
-        }
-        catch (BreakError error) {
+        } catch (BreakError error) {
             // Break out of for/while loop
         }
         return null;
     }
-    
+
     @Override
     public Void visitBreakStmt(Break stmt) {
         throw new BreakError(stmt.token);
+    }
+
+    @Override
+    public Void visitFunctionStmt(Function stmt) {
+        LoxFunction function = new LoxFunction(stmt, environment);
+        environment.define(stmt.name.lexeme, function);
+        return null;
+    }
+
+    @Override
+    public Void visitReturnStmt(Return stmt) {
+        Object value = null;
+        if (stmt.value != null) {
+            value = evaluate(stmt.value);
+        }
+        throw new ReturnError(stmt.keyword, value);
     }
 
     private Object binaryOp(Object left, Token operator, Object right) {

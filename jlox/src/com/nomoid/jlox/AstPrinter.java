@@ -2,7 +2,9 @@ package com.nomoid.jlox;
 
 import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
+import com.nomoid.jlox.Expr.Call;
 import com.nomoid.jlox.Expr.Grouping;
+import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Ternary;
@@ -52,10 +54,20 @@ class AstPrinter implements Expr.Visitor<String> {
     public String visitAssignExpr(Assign expr) {
         return parenthesize(expr.operator.lexeme, new Variable(expr.name), expr.value);
     }
-    
+
     @Override
     public String visitLogicalExpr(Logical expr) {
         return parenthesize(expr.operator.lexeme, expr.left, expr.right);
+    }
+
+    @Override
+    public String visitCallExpr(Call expr) {
+        return parenthesize(expr.callee.accept(this), expr.arguments.toArray(new Expr[] {}));
+    }
+
+    @Override
+    public String visitLambdaExpr(Lambda expr) {
+        throw new UnsupportedOperationException("Lambda expressions are not currently supported.");
     }
 
     private String parenthesize(String name, Expr... exprs) {

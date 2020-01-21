@@ -7,6 +7,7 @@ import java.util.List;
 import static com.nomoid.jlox.TokenType.*;
 
 class Parser {
+    public static final int MAX_PARAM_SIZE = 255;
     private static class ParseError extends RuntimeException {
         // SerialVersionUID to suppress warning
         private static final long serialVersionUID = 1L;
@@ -46,10 +47,19 @@ class Parser {
         }
     }
 
-    // declaration → varDecl
+    // declaration → funDecl
+    //             | varDecl
     //             | statement ;
     private Stmt declaration() {
         try {
+            if (match(FUN)) {
+                if (peek().type == IDENTIFIER) {
+                    return function("function");
+                }
+                else {
+                    return lambdaStatement();
+                }
+            }
             if (match(VAR)) {
                 return varDeclaration();
             }
@@ -59,6 +69,30 @@ class Parser {
             synchronize();
             return null;
         }
+    }
+
+    // funDecl  → "fun" function ;
+    // function → IDENTIFIER "(" parameters? ")" block ;
+    // parameters → IDENTIFIER ( "," IDENTIFIER )* ;
+    private Stmt.Function function(String kind) {
+        Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+        consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+        List<Token> parameters = new ArrayList<>();
+        if (!check(RIGHT_PAREN)) {
+            do {
+                if (parameters.size() >= MAX_PARAM_SIZE) {
+                    error(peek(), "Cannot have more than " +
+                        MAX_PARAM_SIZE + " parameters.");
+                }
+                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+            }
+            while (match(COMMA));
+        }
+        consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+        consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+        List<Stmt> body = block();
+        return new Stmt.Function(name, parameters, body);
     }
 
     // varDecl → "var" IDENTIFIER ( "=" expression )? ";" ;
@@ -79,6 +113,7 @@ class Parser {
     //             | forStmt
     //             | ifStmt
     //             | printStmt
+    //             | returnStmt
     //             | whileStmt
     //             | block ;
     private Stmt statement() {
@@ -94,6 +129,9 @@ class Parser {
         if (match(PRINT)) {
             return printStatement();
         }
+        if (match(RETURN)) {
+            return returnStatement();
+        }
         if (match(WHILE)) {
             return whileStatement();
         }
@@ -101,6 +139,17 @@ class Parser {
             return new Stmt.Block(block());
         }
         return expressionStatement();
+    }
+
+    // returnStmt → "return" expression? ";" ;
+    private Stmt returnStatement() {
+        Token keyword = previous();
+        Expr value = null;
+        if (!check(SEMICOLON)) {
+            value = expression();
+        }
+        consume(SEMICOLON, "Expect ';' after return value.");
+        return new Stmt.Return(keyword, value);
     }
 
     // breakStmt → "break" ";" ;
@@ -209,6 +258,20 @@ class Parser {
         Expr value = expression();
         consume(SEMICOLON, "Expect ';' after expression.");
         return new Stmt.Expression(value);
+    }
+
+    private Stmt lambdaStatement() {
+        Expr expr = lambdaInside();
+        while (true) {
+            if (match(LEFT_PAREN)) {
+                expr = finishCall(expr);
+            }
+            else {
+                break;
+            }
+        }
+        consume(SEMICOLON, "Expect ';' after expression.");
+        return new Stmt.Expression(expr);
     }
 
     // expression     → comma ;
@@ -362,8 +425,7 @@ class Parser {
         return expr;
     }
 
-    // unary          → ( "!" | "-" ) unary
-    //                | primary ;
+    // unary          → ( "!" | "-" ) unary | call ;
     private Expr unary() {
         if (match(BANG, MINUS)) {
             Token operator = previous();
@@ -371,7 +433,69 @@ class Parser {
             return new Expr.Unary(operator, right);
         }
 
+        return call();
+    }
+
+    // call           → lambda ( "(" arguments? ")" )* ;
+    private Expr call() {
+        Expr expr = lambda();
+        while (true) {
+            if (match(LEFT_PAREN)) {
+                expr = finishCall(expr);
+            }
+            else {
+                break;
+            }
+        }
+        return expr;
+    }
+
+    private Expr finishCall(Expr callee) {
+        List<Expr> arguments = new ArrayList<>();
+        if (!check(RIGHT_PAREN)) {
+            do {
+                if (arguments.size() >= MAX_PARAM_SIZE) {
+                    error(peek(), "Cannot have more than " + MAX_PARAM_SIZE + " arguments.");
+                }
+                // Cannot match expression() because of 'comma' expression
+                arguments.add(assignment());
+            }
+            while (match(COMMA));
+        }
+
+        Token paren = consume(RIGHT_PAREN, "Expect ')' after arguments.");
+
+        return new Expr.Call(callee, paren, arguments);
+    }
+
+    // lambda       → "fun" lambdaInside | primary ;
+    // lambdaInside → "(" parameters? ")" block ;
+    // parameters   → IDENTIFIER ( "," IDENTIFIER )* ;
+    private Expr lambda() {
+        if (match(FUN)) {
+            return lambdaInside();
+        }
         return primary();
+    }
+
+    private Expr lambdaInside() {
+        consume(LEFT_PAREN, "Lambda declaration cannot have function name.");
+        List<Token> parameters = new ArrayList<>();
+        if (!check(RIGHT_PAREN)) {
+            do {
+                if (parameters.size() >= MAX_PARAM_SIZE) {
+                    error(peek(), "Cannot have more than " +
+                        MAX_PARAM_SIZE + " parameters.");
+                }
+                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+            }
+            while (match(COMMA));
+        }
+        Token paren = consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+        consume(LEFT_BRACE, "Expect '{' before lambda body.");
+        List<Stmt> body = block();
+        return new Expr.Lambda(paren, parameters, body);
     }
 
     // primary        → NUMBER | STRING | "false" | "true" | "nil"
