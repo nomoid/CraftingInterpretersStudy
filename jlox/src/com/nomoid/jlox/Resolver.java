@@ -27,9 +27,24 @@ import com.nomoid.jlox.Stmt.While;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private Interpreter interpreter;
-    private final Stack<Map<String, Boolean>> scopes = new Stack<>();
+    private final Stack<Map<String, ScopeDeclaration>> scopes = new Stack<>();
     private FunctionType currentFunction = FunctionType.NONE;
     private BlockType currentBlock = BlockType.NONE;
+
+    private static class ScopeDeclaration {
+        ScopeDeclaration(Token token, DeclarationState state) {
+            this.token = token;
+            this.state = state;
+        }
+
+        ScopeDeclaration(ScopeDeclaration declaration, DeclarationState state) {
+            this.token = declaration.token;
+            this.state = state;
+        }
+
+        final DeclarationState state;
+        final Token token;
+    }
 
     private enum FunctionType {
         NONE,
@@ -39,6 +54,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private enum BlockType {
         NONE,
         LOOP
+    }
+
+    private enum DeclarationState {
+        DECLARED,
+        INITIALIZED,
+        USED
     }
 
     Resolver(Interpreter interpreter) {
@@ -60,10 +81,19 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     private void beginScope() {
-        scopes.push(new HashMap<String, Boolean>());
+        scopes.push(new HashMap<String, ScopeDeclaration>());
     }
 
     private void endScope() {
+        Map<String, ScopeDeclaration> scope = scopes.peek();
+        for (Map.Entry<String, ScopeDeclaration> state : scope.entrySet()) {
+            if (state.getValue().state != DeclarationState.USED) {
+                if (Lox.strict) {
+                    Lox.error(state.getValue().token,
+                        "Variable with this name is never used.");
+                }
+            }
+        }
         scopes.pop();
     }
 
@@ -71,27 +101,47 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         if (scopes.isEmpty()) {
             return;
         }
-        Map<String, Boolean> scope = scopes.peek();
+        Map<String, ScopeDeclaration> scope = scopes.peek();
         if (scope.containsKey(name.lexeme)) {
             Lox.error(name,
                 "Variable with this name already declared in this scope.");
         }
         // Not yet ready for use
-        scope.put(name.lexeme, false);
+        scope.put(name.lexeme,
+            new ScopeDeclaration(name, DeclarationState.DECLARED));
     }
 
     private void define(Token name) {
         if (scopes.isEmpty()) {
             return;
         }
-        Map<String, Boolean> scope = scopes.peek();
+        Map<String, ScopeDeclaration> scope = scopes.peek();
+        ScopeDeclaration oldDeclaration = scope.get(name.lexeme);
         // Ready for use
-        scope.put(name.lexeme, true);
+        scope.put(name.lexeme,
+            new ScopeDeclaration(oldDeclaration, DeclarationState.INITIALIZED));
     }
 
-    private void resolveLocal(Expr expr, Token name) {
+    private void resolveLocal(Expr expr, Token name, boolean used) {
         for (int i = scopes.size() - 1; i >= 0; i--) {
-            if (scopes.get(i).containsKey(name.lexeme)) {
+            Map<String, ScopeDeclaration> scope = scopes.get(i);
+            if (scope.containsKey(name.lexeme)) {
+                if (used) {
+                    // Using a variable
+                    ScopeDeclaration oldDeclaration = scope.get(name.lexeme);
+                    scope.put(name.lexeme,
+                        new ScopeDeclaration(oldDeclaration,
+                        DeclarationState.USED));
+                }
+                else {
+                    ScopeDeclaration oldDeclaration = scope.get(name.lexeme);
+                    if (oldDeclaration.state == DeclarationState.DECLARED) {
+                        // First time defining
+                        scope.put(name.lexeme,
+                            new ScopeDeclaration(oldDeclaration,
+                            DeclarationState.INITIALIZED));
+                    }
+                }
                 interpreter.resolve(expr, scopes.size() - 1 - i);
                 return;
             }
@@ -178,8 +228,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         declare(stmt.name);
         if (stmt.initializer != null) {
             resolve(stmt.initializer);
+            define(stmt.name);
         }
-        define(stmt.name);
         return null;
     }
 
@@ -196,7 +246,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitAssignExpr(Assign expr) {
         resolve(expr.value);
-        resolveLocal(expr, expr.name);
+        resolveLocal(expr, expr.name, false);
         return null;
     }
 
@@ -257,12 +307,17 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitVariableExpr(Variable expr) {
-        if (!scopes.isEmpty() &&
-                scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
-            Lox.error(expr.name,
-                "Cannot read local variable in its own initializer.");
+        if (!scopes.isEmpty()) {
+            ScopeDeclaration decl = scopes.peek().get(expr.name.lexeme);
+            if (decl != null && decl.state == DeclarationState.DECLARED) {
+                if (Lox.strict) {
+                    Lox.error(expr.name,
+                        "Variable with this name is guaranteed to be " +
+                        " uninitialzed.");
+                }
+            }
         }
-        resolveLocal(expr, expr.name);
+        resolveLocal(expr, expr.name, true);
         return null;
     }
 }

@@ -13,6 +13,7 @@ public class Lox {
 
     private static final Interpreter interpreter = new Interpreter();
 
+    static boolean strict = false;
     static boolean hadError = false;
     static boolean hadRuntimeError = false;
     static boolean suppressErrors = false;
@@ -113,7 +114,7 @@ public class Lox {
             return;
         }
         System.err.println(error.getMessage() +
-            "\n[line " + error.token.line + "]");
+            "\n[Runtime error at line " + error.token.line + "]");
     }
 
     private static void report(int line, String where, String message) {
@@ -122,6 +123,6 @@ public class Lox {
             return;
         }
         System.err.println(
-            "[line " + line + "] Error" + where + ": " + message);
+            "[Error at line " + line + "] Error" + where + ": " + message);
     }
 }
