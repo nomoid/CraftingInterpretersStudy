@@ -6,6 +6,7 @@ interface Declaration {
     String name();
     List<Token> params();
     List<Stmt> body();
+    Token token();
 }
 
 class FunctionDeclaration implements Declaration {
@@ -31,6 +32,11 @@ class FunctionDeclaration implements Declaration {
         return function.body;
     }
 
+    @Override
+    public Token token() {
+        return function.name;
+    }
+
 }
 
 class LambdaDeclaration implements Declaration {
@@ -54,5 +60,10 @@ class LambdaDeclaration implements Declaration {
     @Override
     public List<Stmt> body() {
         return lambda.body;
+    }
+
+    @Override
+    public Token token() {
+        return lambda.keyword;
     }
 }

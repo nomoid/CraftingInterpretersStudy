@@ -8,15 +8,19 @@ import java.util.Map;
 import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Call;
+import com.nomoid.jlox.Expr.Get;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
+import com.nomoid.jlox.Expr.Set;
 import com.nomoid.jlox.Expr.Ternary;
+import com.nomoid.jlox.Expr.This;
 import com.nomoid.jlox.Expr.Unary;
 import com.nomoid.jlox.Expr.Variable;
 import com.nomoid.jlox.Stmt.Block;
 import com.nomoid.jlox.Stmt.Break;
+import com.nomoid.jlox.Stmt.Class;
 import com.nomoid.jlox.Stmt.Expression;
 import com.nomoid.jlox.Stmt.Function;
 import com.nomoid.jlox.Stmt.If;
@@ -29,6 +33,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     final Environment globals = new Environment();
     private Environment environment = globals;
     private final Map<Expr, Integer> locals = new HashMap<>();
+    static final String INIT_STRING = "init";
 
     Interpreter() {
         globals.define("clock", new LoxCallable() {
@@ -149,27 +154,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Object visitAssignExpr(Assign expr) {
-        Token binaryOp = null;
-        switch (expr.operator.type) {
-        case PLUS_EQUAL:
-            binaryOp = derivedToken(expr.operator, TokenType.PLUS);
-            break;
-        case MINUS_EQUAL:
-            binaryOp = derivedToken(expr.operator, TokenType.MINUS);
-            break;
-        case STAR_EQUAL:
-            binaryOp = derivedToken(expr.operator, TokenType.STAR);
-            break;
-        case SLASH_EQUAL:
-            binaryOp = derivedToken(expr.operator, TokenType.SLASH);
-            break;
-        case EQUAL:
-            // No binary op
-            break;
-        default:
-            // Unreachable code
-            throw new InterpreterException(expr.operator, "Illegal asign operator.");
-        }
+        Token binaryOp = getAssignBinaryOp(expr.operator);
 
         Object value = evaluate(expr.value);
         Integer distance = locals.get(expr);
@@ -177,16 +162,14 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             Object original;
             if (distance != null) {
                 original = environment.getAt(distance, expr.name);
-            }
-            else {
+            } else {
                 original = globals.get(expr.name);
             }
             value = binaryOp(original, binaryOp, value);
         }
         if (distance != null) {
             environment.assignAt(distance, expr.name, value);
-        }
-        else {
+        } else {
             globals.assign(expr.name, value);
         }
         return value;
@@ -230,7 +213,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Object visitLambdaExpr(Lambda expr) {
-        return new LoxFunction(expr, environment);
+        return new LoxFunction(expr, environment, false);
     }
 
     @Override
@@ -293,7 +276,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitFunctionStmt(Function stmt) {
-        LoxFunction function = new LoxFunction(stmt, environment);
+        LoxFunction function = new LoxFunction(stmt, environment, false);
         environment.define(stmt.name.lexeme, function);
         return null;
     }
@@ -305,6 +288,22 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             value = evaluate(stmt.value);
         }
         throw new ReturnError(stmt.keyword, value);
+    }
+
+    @Override
+    public Void visitClassStmt(Class stmt) {
+        environment.define(stmt.name.lexeme, null);
+
+        Map<String, LoxFunction> methods = new HashMap<>();
+        for (Stmt.Function method : stmt.methods) {
+            LoxFunction function = new LoxFunction(method, environment,
+                method.name.lexeme.equals(INIT_STRING));
+            methods.put(method.name.lexeme, function);
+        }
+
+        LoxClass klass = new LoxClass(stmt.name.lexeme, methods);
+        environment.assign(stmt.name, klass);
+        return null;
     }
 
     private Object binaryOp(Object left, Token operator, Object right) {
@@ -413,9 +412,61 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Integer distance = locals.get(expr);
         if (distance != null) {
             return environment.getAt(distance, name);
-        }
-        else {
+        } else {
             return globals.get(name);
         }
+    }
+
+    @Override
+    public Object visitGetExpr(Get expr) {
+        Object object = evaluate(expr.object);
+        if (object instanceof LoxInstance) {
+            return ((LoxInstance) object).get(expr.name);
+        }
+
+        throw new RuntimeError(expr.name, "Only instances have properties.");
+    }
+
+    @Override
+    public Object visitSetExpr(Set expr) {
+        Object object = evaluate(expr.object);
+        if (!(object instanceof LoxInstance)) {
+            throw new RuntimeError(expr.name, "Only instances have fields.");
+        }
+        LoxInstance instance = (LoxInstance) object;
+
+        Token binaryOp = getAssignBinaryOp(expr.operator);
+
+        Object value = evaluate(expr.value);
+        if (binaryOp != null) {
+            Object original = instance.get(expr.name);
+            value = binaryOp(original, binaryOp, value);
+        }
+        instance.set(expr.name, value);
+        return value;
+    }
+
+    private Token getAssignBinaryOp(Token operator) {
+        switch (operator.type) {
+        case PLUS_EQUAL:
+            return derivedToken(operator, TokenType.PLUS);
+        case MINUS_EQUAL:
+            return derivedToken(operator, TokenType.MINUS);
+        case STAR_EQUAL:
+            return derivedToken(operator, TokenType.STAR);
+        case SLASH_EQUAL:
+            return derivedToken(operator, TokenType.SLASH);
+        case EQUAL:
+            // No binary op
+            return null;
+        default:
+            // Unreachable code
+            throw new InterpreterException(operator, "Illegal asign operator.");
+        }
+    }
+
+    @Override
+    public Object visitThisExpr(This expr) {
+        return lookUpVariable(expr.keyword, expr);
     }
 }

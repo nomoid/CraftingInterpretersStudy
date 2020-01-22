@@ -8,15 +8,19 @@ import java.util.Stack;
 import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Call;
+import com.nomoid.jlox.Expr.Get;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
+import com.nomoid.jlox.Expr.Set;
 import com.nomoid.jlox.Expr.Ternary;
+import com.nomoid.jlox.Expr.This;
 import com.nomoid.jlox.Expr.Unary;
 import com.nomoid.jlox.Expr.Variable;
 import com.nomoid.jlox.Stmt.Block;
 import com.nomoid.jlox.Stmt.Break;
+import com.nomoid.jlox.Stmt.Class;
 import com.nomoid.jlox.Stmt.Expression;
 import com.nomoid.jlox.Stmt.Function;
 import com.nomoid.jlox.Stmt.If;
@@ -30,6 +34,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private final Stack<Map<String, ScopeDeclaration>> scopes = new Stack<>();
     private FunctionType currentFunction = FunctionType.NONE;
     private BlockType currentBlock = BlockType.NONE;
+    private ClassType currentClass = ClassType.NONE;
 
     private static class ScopeDeclaration {
         ScopeDeclaration(Token token, DeclarationState state) {
@@ -47,19 +52,23 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     private enum FunctionType {
-        NONE,
-        FUNCTION
+        NONE, FUNCTION, INITIALIZER, METHOD
     }
 
     private enum BlockType {
-        NONE,
-        LOOP
+        NONE, LOOP
     }
 
     private enum DeclarationState {
-        DECLARED,
-        INITIALIZED,
-        USED
+        DECLARED, INITIALIZED, USED
+    }
+
+    private enum ResolveLocalType {
+        USE, ASSIGN, THIS;
+    }
+
+    private enum ClassType {
+        NONE, CLASS
     }
 
     Resolver(Interpreter interpreter) {
@@ -89,8 +98,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         for (Map.Entry<String, ScopeDeclaration> state : scope.entrySet()) {
             if (state.getValue().state != DeclarationState.USED) {
                 if (Lox.strict) {
-                    Lox.error(state.getValue().token,
-                        "Variable with this name is never used.");
+                    Lox.error(state.getValue().token, "Variable with this name is never used.");
                 }
             }
         }
@@ -103,12 +111,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         }
         Map<String, ScopeDeclaration> scope = scopes.peek();
         if (scope.containsKey(name.lexeme)) {
-            Lox.error(name,
-                "Variable with this name already declared in this scope.");
+            Lox.error(name, "Variable with this name already declared in this scope.");
         }
         // Not yet ready for use
-        scope.put(name.lexeme,
-            new ScopeDeclaration(name, DeclarationState.DECLARED));
+        scope.put(name.lexeme, new ScopeDeclaration(name, DeclarationState.DECLARED));
     }
 
     private void define(Token name) {
@@ -118,29 +124,30 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         Map<String, ScopeDeclaration> scope = scopes.peek();
         ScopeDeclaration oldDeclaration = scope.get(name.lexeme);
         // Ready for use
-        scope.put(name.lexeme,
-            new ScopeDeclaration(oldDeclaration, DeclarationState.INITIALIZED));
+        scope.put(name.lexeme, new ScopeDeclaration(oldDeclaration, DeclarationState.INITIALIZED));
     }
 
-    private void resolveLocal(Expr expr, Token name, boolean used) {
+    private void resolveLocal(Expr expr, Token name, ResolveLocalType type) {
         for (int i = scopes.size() - 1; i >= 0; i--) {
             Map<String, ScopeDeclaration> scope = scopes.get(i);
             if (scope.containsKey(name.lexeme)) {
-                if (used) {
-                    // Using a variable
-                    ScopeDeclaration oldDeclaration = scope.get(name.lexeme);
-                    scope.put(name.lexeme,
-                        new ScopeDeclaration(oldDeclaration,
-                        DeclarationState.USED));
-                }
-                else {
-                    ScopeDeclaration oldDeclaration = scope.get(name.lexeme);
-                    if (oldDeclaration.state == DeclarationState.DECLARED) {
-                        // First time defining
-                        scope.put(name.lexeme,
-                            new ScopeDeclaration(oldDeclaration,
-                            DeclarationState.INITIALIZED));
-                    }
+                ScopeDeclaration oldDeclaration;
+                switch (type) {
+                    case USE:
+                        // Using a variable
+                        oldDeclaration = scope.get(name.lexeme);
+                        scope.put(name.lexeme, new ScopeDeclaration(oldDeclaration, DeclarationState.USED));
+                        break;
+                    case ASSIGN:
+                        oldDeclaration = scope.get(name.lexeme);
+                        if (oldDeclaration.state == DeclarationState.DECLARED) {
+                            // First time defining
+                            scope.put(name.lexeme, new ScopeDeclaration(oldDeclaration, DeclarationState.INITIALIZED));
+                        }
+                        break;
+                    case THIS:
+                        // Do nothing;
+                        break;
                 }
                 interpreter.resolve(expr, scopes.size() - 1 - i);
                 return;
@@ -175,8 +182,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitBreakStmt(Break stmt) {
         if (currentBlock == BlockType.NONE) {
-            Lox.error(stmt.token,
-                "Cannot break from outside of for or while block.");
+            Lox.error(stmt.token, "Cannot break from outside of for or while block.");
         }
         return null;
     }
@@ -218,6 +224,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         }
 
         if (stmt.value != null) {
+            if (currentFunction == FunctionType.INITIALIZER) {
+                Lox.error(stmt.keyword,
+                    "Cannot return a value from an initializer.");
+            }
             resolve(stmt.value);
         }
         return null;
@@ -228,6 +238,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         declare(stmt.name);
         if (stmt.initializer != null) {
             resolve(stmt.initializer);
+        }
+        if (Lox.strict) {
+            if (stmt.initializer != null) {
+                define(stmt.name);
+            }
+        } else {
             define(stmt.name);
         }
         return null;
@@ -246,7 +262,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitAssignExpr(Assign expr) {
         resolve(expr.value);
-        resolveLocal(expr, expr.name, false);
+        resolveLocal(expr, expr.name, ResolveLocalType.ASSIGN);
         return null;
     }
 
@@ -311,13 +327,63 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             ScopeDeclaration decl = scopes.peek().get(expr.name.lexeme);
             if (decl != null && decl.state == DeclarationState.DECLARED) {
                 if (Lox.strict) {
-                    Lox.error(expr.name,
-                        "Variable with this name is guaranteed to be " +
-                        " uninitialzed.");
+                    Lox.error(expr.name, "Variable with this name is guaranteed to be " + " uninitialzed.");
+                } else {
+                    Lox.error(expr.name, "Cannot access variable in its own initializer.");
                 }
             }
         }
-        resolveLocal(expr, expr.name, true);
+        resolveLocal(expr, expr.name, ResolveLocalType.USE);
+        return null;
+    }
+
+    @Override
+    public Void visitClassStmt(Class stmt) {
+        ClassType enclosingClass = currentClass;
+        currentClass = ClassType.CLASS;
+
+        declare(stmt.name);
+        define(stmt.name);
+
+        beginScope();
+        // Don't need to track usage for 'this'
+        scopes.peek().put("this", new ScopeDeclaration(stmt.name,
+            DeclarationState.USED));
+        for (Stmt.Function method : stmt.methods) {
+            FunctionType declaration = FunctionType.METHOD;
+            if (method.name.lexeme.equals(Interpreter.INIT_STRING)) {
+                declaration = FunctionType.INITIALIZER;
+            }
+            resolveFunction(new FunctionDeclaration(method), declaration);
+        }
+        endScope();
+
+        currentClass = enclosingClass;
+
+        return null;
+    }
+
+    @Override
+    public Void visitGetExpr(Get expr) {
+        resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitSetExpr(Set expr) {
+        resolve(expr.value);
+        resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitThisExpr(This expr) {
+        if (currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword,
+                "Cannot use 'this' outside of a class.");
+            return null;
+        }
+        resolveLocal(expr, expr.keyword, ResolveLocalType.THIS);
         return null;
     }
 }

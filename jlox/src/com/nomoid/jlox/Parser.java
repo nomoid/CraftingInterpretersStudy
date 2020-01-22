@@ -47,17 +47,20 @@ class Parser {
         }
     }
 
-    // declaration → funDecl
+    // declaration → classDecl
+    //             | funDecl
     //             | varDecl
     //             | statement ;
     private Stmt declaration() {
         try {
-            if (match(FUN)) {
-                if (peek().type == IDENTIFIER) {
+            if (match(CLASS)) {
+                return classDeclaration();
+            }
+            if (peek().type == FUN) {
+                // Lookahead 2 for lambdas
+                if (peekNext().type == IDENTIFIER) {
+                    consume(FUN, "Expected 'fun' from peek.");
                     return function("function");
-                }
-                else {
-                    return lambdaStatement();
                 }
             }
             if (match(VAR)) {
@@ -69,6 +72,18 @@ class Parser {
             synchronize();
             return null;
         }
+    }
+
+    // classDecl   → "class" IDENTIFIER "{" function* "}" ;
+    private Stmt classDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect class name.");
+        consume(LEFT_BRACE, "Expect '{' before class body.");
+        List<Stmt.Function> methods = new ArrayList<>();
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            methods.add(function("method"));
+        }
+        consume(RIGHT_BRACE, "Expect '}' after class body.");
+        return new Stmt.Class(name, methods);
     }
 
     // funDecl  → "fun" function ;
@@ -260,20 +275,6 @@ class Parser {
         return new Stmt.Expression(value);
     }
 
-    private Stmt lambdaStatement() {
-        Expr expr = lambdaInside();
-        while (true) {
-            if (match(LEFT_PAREN)) {
-                expr = finishCall(expr);
-            }
-            else {
-                break;
-            }
-        }
-        consume(SEMICOLON, "Expect ';' after expression.");
-        return new Stmt.Expression(expr);
-    }
-
     // expression     → comma ;
     private Expr expression() {
         return comma();
@@ -294,7 +295,7 @@ class Parser {
         return expr;
     }
 
-    // assignment → IDENTIFIER ( "+" | "-" | "*" | "/" )? "=" assignment
+    // assignment → ( call "." )? IDENTIFIER ( "+" | "-" | "*" | "/" )? "=" assignment
     //            | ternary ;
     private Expr assignment() {
         if (match(EQUAL, PLUS_EQUAL, MINUS_EQUAL, STAR_EQUAL, SLASH_EQUAL)) {
@@ -308,6 +309,10 @@ class Parser {
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable)expr).name;
                 return new Expr.Assign(name, equals, value);
+            }
+            else if (expr instanceof Expr.Get) {
+                Expr.Get get = (Expr.Get)expr;
+                return new Expr.Set(get.object, get.name, equals, value);
             }
             error(equals, "Invalid assignment target.");
         }
@@ -436,12 +441,17 @@ class Parser {
         return call();
     }
 
-    // call           → lambda ( "(" arguments? ")" )* ;
+    // call           → lambda ( "(" arguments? ")" | "." IDENTIFIER )* ;
     private Expr call() {
         Expr expr = lambda();
         while (true) {
             if (match(LEFT_PAREN)) {
                 expr = finishCall(expr);
+            }
+            else if (match(DOT)) {
+                Token name = consume(IDENTIFIER,
+                    "Expect property name after '.'.");
+                expr = new Expr.Get(expr, name);
             }
             else {
                 break;
@@ -479,7 +489,11 @@ class Parser {
     }
 
     private Expr lambdaInside() {
-        consume(LEFT_PAREN, "Lambda declaration cannot have function name.");
+        if (peek().type == IDENTIFIER) {
+            consume(LEFT_PAREN,
+                "Lambda declaration cannot have function name.");
+        }
+        consume(LEFT_PAREN, "Expect '(' for lambda declaration.");
         List<Token> parameters = new ArrayList<>();
         if (!check(RIGHT_PAREN)) {
             do {
@@ -513,6 +527,10 @@ class Parser {
 
         if (match(NUMBER, STRING)) {
             return new Expr.Literal(previous().literal);
+        }
+
+        if (match(THIS)) {
+            return new Expr.This(previous());
         }
 
         if (match(IDENTIFIER)) {
@@ -585,6 +603,14 @@ class Parser {
 
     private Token peek() {
         return tokens.get(current);
+    }
+
+    // 2x lookahead, only for lambdas
+    private Token peekNext() {
+        if (current + 1 == tokens.size()) {
+            return tokens.get(current);
+        }
+        return tokens.get(current + 1);
     }
 
     private Token previous() {

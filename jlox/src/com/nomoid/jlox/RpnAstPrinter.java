@@ -3,11 +3,14 @@ package com.nomoid.jlox;
 import com.nomoid.jlox.Expr.Assign;
 import com.nomoid.jlox.Expr.Binary;
 import com.nomoid.jlox.Expr.Call;
+import com.nomoid.jlox.Expr.Get;
 import com.nomoid.jlox.Expr.Grouping;
 import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
+import com.nomoid.jlox.Expr.Set;
 import com.nomoid.jlox.Expr.Ternary;
+import com.nomoid.jlox.Expr.This;
 import com.nomoid.jlox.Expr.Unary;
 import com.nomoid.jlox.Expr.Variable;
 import com.nomoid.jlox.Expr.Visitor;
@@ -55,7 +58,7 @@ class RpnAstPrinter implements Visitor<String> {
     public String visitAssignExpr(Assign expr) {
         return rpn(expr.operator.lexeme, new Variable(expr.name), expr.value);
     }
-    
+
     @Override
     public String visitLogicalExpr(Logical expr) {
         return rpn(expr.operator.lexeme, expr.left, expr.right);
@@ -63,13 +66,27 @@ class RpnAstPrinter implements Visitor<String> {
 
     @Override
     public String visitCallExpr(Call expr) {
-        return rpn(expr.callee.accept(this),
-            expr.arguments.toArray(new Expr[]{})); 
+        return rpn(expr.callee.accept(this), expr.arguments.toArray(new Expr[] {}));
     }
 
     @Override
     public String visitLambdaExpr(Lambda expr) {
         throw new UnsupportedOperationException("Lambda expressions are not currently supported.");
+    }
+
+    @Override
+    public String visitGetExpr(Get expr) {
+        return rpn(".", new Variable(expr.name), expr.object);
+    }
+
+    @Override
+    public String visitSetExpr(Set expr) {
+        return rpn("." + expr.operator, expr.object, new Variable(expr.name), expr.value);
+    }
+    
+    @Override
+    public String visitThisExpr(This expr) {
+        return "this";
     }
 
     private String rpn(String name, Expr... exprs) {
