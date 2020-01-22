@@ -294,6 +294,12 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Void visitClassStmt(Class stmt) {
         environment.define(stmt.name.lexeme, null);
 
+        Map<String, LoxFunction> statics = new HashMap<>();
+        for (Stmt.Function staticFunction : stmt.statics) {
+            LoxFunction function = new LoxFunction(staticFunction, environment,
+                false);
+            statics.put(staticFunction.name.lexeme, function);
+        }
         Map<String, LoxFunction> methods = new HashMap<>();
         for (Stmt.Function method : stmt.methods) {
             LoxFunction function = new LoxFunction(method, environment,
@@ -301,7 +307,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             methods.put(method.name.lexeme, function);
         }
 
-        LoxClass klass = new LoxClass(stmt.name.lexeme, methods);
+        LoxClass klass = new LoxClass(stmt.name.lexeme, methods, statics);
         environment.assign(stmt.name, klass);
         return null;
     }

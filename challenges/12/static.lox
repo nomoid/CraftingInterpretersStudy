@@ -1,0 +1,12 @@
+class Math {
+  class square(n) {
+    return n * n;
+  }
+
+  class cube(n) {
+      return this.square(n) * n;
+  }
+}
+
+print Math.square(3); // Prints "9".
+print Math.cube(3); // Prints "27".

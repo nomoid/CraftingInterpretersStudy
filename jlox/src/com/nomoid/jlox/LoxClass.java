@@ -3,18 +3,43 @@ package com.nomoid.jlox;
 import java.util.List;
 import java.util.Map;
 
-class LoxClass implements LoxCallable{
+class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
     final String name;
     private final Map<String, LoxFunction> methods;
+    static final LoxClasslike none = new LoxClasslike(){
+        
+        @Override
+        public String name() {
+            return "None";
+        }
+    
+        @Override
+        public LoxFunction findMethod(String name) {
+            return null;
+        }
+    };
 
-    LoxClass(String name, Map<String, LoxFunction> methods) {
+    LoxClass(String name, Map<String, LoxFunction> methods,
+            Map<String, LoxFunction> statics) {
+        super(new LoxClass(name, statics));
         this.name = name;
         this.methods = methods;
     }
 
+    private LoxClass(String name, Map<String, LoxFunction> statics) {
+        super(none);
+        this.name = name + " metaclass";
+        this.methods = statics;
+    }
+
+    @Override
+    public String name() {
+        return name;
+    }
+
     @Override
     public String toString() {
-        return name;
+        return name();
     }
 
     @Override
@@ -36,7 +61,8 @@ class LoxClass implements LoxCallable{
         return initializer.arity();
     }
 
-    LoxFunction findMethod(String name) {
+    @Override
+    public LoxFunction findMethod(String name) {
         if (methods.containsKey(name)) {
             return methods.get(name);
         }

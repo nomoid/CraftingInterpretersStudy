@@ -356,6 +356,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             }
             resolveFunction(new FunctionDeclaration(method), declaration);
         }
+        // 'this' for class is the class object itself
+        for (Stmt.Function staticFunction : stmt.statics) {
+            resolveFunction(new FunctionDeclaration(staticFunction),
+                FunctionType.METHOD);
+        }
         endScope();
 
         currentClass = enclosingClass;

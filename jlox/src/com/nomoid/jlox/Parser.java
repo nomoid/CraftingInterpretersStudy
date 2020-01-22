@@ -78,12 +78,19 @@ class Parser {
     private Stmt classDeclaration() {
         Token name = consume(IDENTIFIER, "Expect class name.");
         consume(LEFT_BRACE, "Expect '{' before class body.");
+        List<Stmt.Function> statics = new ArrayList<>();
         List<Stmt.Function> methods = new ArrayList<>();
         while (!check(RIGHT_BRACE) && !isAtEnd()) {
-            methods.add(function("method"));
+            if (match(CLASS)) {
+                // Add static function
+                statics.add(function("static function"));
+            }
+            else {
+                methods.add(function("method"));
+            }
         }
         consume(RIGHT_BRACE, "Expect '}' after class body.");
-        return new Stmt.Class(name, methods);
+        return new Stmt.Class(name, methods, statics);
     }
 
     // funDecl  → "fun" function ;

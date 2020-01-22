@@ -4,16 +4,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 class LoxInstance {
-    private LoxClass klass;
+    private LoxClasslike klass;
     private final Map<String, Object> fields = new HashMap<>();
 
-    LoxInstance(LoxClass klass) {
+    LoxInstance(LoxClasslike klass) {
         this.klass = klass;
     }
 
     @Override
     public String toString() {
-        return klass.name + " instance";
+        return klass.name() + " instance";
     }
 
     Object get(Token name) {
