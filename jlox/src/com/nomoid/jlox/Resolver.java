@@ -14,6 +14,7 @@ import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Set;
+import com.nomoid.jlox.Expr.Super;
 import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.This;
 import com.nomoid.jlox.Expr.Unary;
@@ -65,11 +66,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     private enum ResolveLocalType {
-        USE, ASSIGN, THIS;
+        USE, ASSIGN, THIS, SUPER
     }
 
     private enum ClassType {
-        NONE, CLASS
+        NONE, CLASS, SUBCLASS
     }
 
     Resolver(Interpreter interpreter) {
@@ -147,6 +148,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
                     }
                     break;
                 case THIS:
+                case SUPER:
                     // Do nothing;
                     break;
                 }
@@ -345,6 +347,16 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         declare(stmt.name);
         define(stmt.name);
 
+        if (stmt.superclass != null) {
+            if (stmt.name.lexeme.equals(stmt.superclass.name.lexeme)) {
+                Lox.error(stmt.superclass.name, "A class cannot inherit from itself.");
+            }
+            currentClass = ClassType.SUBCLASS;
+            resolve(stmt.superclass);
+            beginScope();
+            scopes.peek().put("super", new ScopeDeclaration(stmt.superclass.name, DeclarationState.USED));
+        }
+
         beginScope();
         // Don't need to track usage for 'this'
         scopes.peek().put("this", new ScopeDeclaration(stmt.name, DeclarationState.USED));
@@ -364,6 +376,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             resolveFunction(new GetterDeclaration(getter), FunctionType.METHOD);
         }
         endScope();
+
+        if (stmt.superclass != null) {
+            endScope();
+        }
 
         currentClass = enclosingClass;
 
@@ -395,7 +411,20 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitGetterStmt(Getter stmt) {
-        throw new InterpreterException(stmt.name,
-            "Getters cannot be visited outside of class context.");
+        throw new InterpreterException(stmt.name, "Getters cannot be visited outside of class context.");
+    }
+
+    @Override
+    public Void visitSuperExpr(Super expr) {
+        if (currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword,
+                "Cannot use 'super' outside of a class.");
+        }
+        else if (currentClass != ClassType.SUBCLASS) {
+            Lox.error(expr.keyword,
+                "Cannot use 'super' in a class with no superclass.");
+        }
+        resolveLocal(expr, expr.keyword, ResolveLocalType.SUPER);
+        return null;
     }
 }

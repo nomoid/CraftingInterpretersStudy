@@ -6,6 +6,7 @@ import java.util.Map;
 
 class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
     final String name;
+    final LoxClass superclass;
     private final Map<String, LoxFunction> methods;
     private final Map<String, LoxFunction> getters;
     static final LoxClasslike none = new LoxClasslike(){
@@ -26,13 +27,15 @@ class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
         }
     };
 
-    LoxClass(String name, Map<String, LoxFunction> methods,
+    LoxClass(String name, LoxClass superclass,
+            Map<String, LoxFunction> methods,
             Map<String, LoxFunction> statics,
             Map<String, LoxFunction> getters) {
         super(new LoxClass(name, statics));
         this.name = name;
         this.methods = methods;
         this.getters = getters;
+        this.superclass = superclass;
     }
 
     private LoxClass(String name, Map<String, LoxFunction> statics) {
@@ -40,6 +43,7 @@ class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
         this.name = name + " metaclass";
         this.methods = statics;
         this.getters = new HashMap<>();
+        this.superclass = null;
     }
 
     @Override
@@ -77,6 +81,10 @@ class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
             return methods.get(name);
         }
 
+        if (superclass != null) {
+            return superclass.findMethod(name);
+        }
+
         return null;
     }
 
@@ -85,6 +93,11 @@ class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
         if (getters.containsKey(name)) {
             return getters.get(name);
         }
+
+        if (superclass != null) {
+            return superclass.findGetter(name);
+        }
+        
         return null;
     }
     

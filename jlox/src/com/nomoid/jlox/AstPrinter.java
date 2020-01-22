@@ -9,6 +9,7 @@ import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Set;
+import com.nomoid.jlox.Expr.Super;
 import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.This;
 import com.nomoid.jlox.Expr.Unary;
@@ -88,7 +89,12 @@ class AstPrinter implements Expr.Visitor<String> {
         return "this";
     }
 
-    private String parenthesize(String name, Expr... exprs) {
+    @Override
+    public String visitSuperExpr(Super expr) {
+        return parenthesize("super", new Variable(expr.method));
+    }
+
+    protected String parenthesize(String name, Expr... exprs) {
         StringBuilder builder = new StringBuilder();
 
         builder.append("(").append(name);

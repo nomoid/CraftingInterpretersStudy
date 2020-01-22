@@ -14,6 +14,7 @@ import com.nomoid.jlox.Expr.Lambda;
 import com.nomoid.jlox.Expr.Literal;
 import com.nomoid.jlox.Expr.Logical;
 import com.nomoid.jlox.Expr.Set;
+import com.nomoid.jlox.Expr.Super;
 import com.nomoid.jlox.Expr.Ternary;
 import com.nomoid.jlox.Expr.This;
 import com.nomoid.jlox.Expr.Unary;
@@ -293,7 +294,20 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitClassStmt(Class stmt) {
+        Object superclass = null;
+        if (stmt.superclass != null) {
+            superclass = evaluate(stmt.superclass);
+            if (!(superclass instanceof LoxClass)) {
+                throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
+            }
+        }
+
         environment.define(stmt.name.lexeme, null);
+
+        if (stmt.superclass != null) {
+            environment = new Environment(environment);
+            environment.define("super", superclass);
+        }
 
         Map<String, LoxFunction> statics = new HashMap<>();
         for (Stmt.Function staticFunction : stmt.statics) {
@@ -311,7 +325,12 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             getters.put(getter.name.lexeme, function);
         }
 
-        LoxClass klass = new LoxClass(stmt.name.lexeme, methods, statics, getters);
+        LoxClass klass = new LoxClass(stmt.name.lexeme, (LoxClass) superclass, methods, statics, getters);
+
+        if (superclass != null) {
+            environment = environment.enclosing;
+        }
+
         environment.assign(stmt.name, klass);
         return null;
     }
@@ -418,6 +437,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return new Token(newType, token.lexeme, null, token.line);
     }
 
+    private Token derivedToken(Token token, String name, TokenType newType) {
+        return new Token(newType, name, null, token.line);
+    }
+
     private Object lookUpVariable(Token name, Expr expr) {
         Integer distance = locals.get(expr);
         if (distance != null) {
@@ -482,7 +505,24 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitGetterStmt(Getter stmt) {
-        throw new InterpreterException(stmt.name,
-            "Getters cannot be visited outside of class context.");
+        throw new InterpreterException(stmt.name, "Getters cannot be visited outside of class context.");
+    }
+
+    @Override
+    public Object visitSuperExpr(Super expr) {
+        int distance = locals.get(expr);
+        LoxClass superclass = (LoxClass)environment.getAt(distance,
+            expr.keyword);
+        LoxInstance object = (LoxInstance)environment.getAt(distance - 1,
+            derivedToken(expr.keyword, "this", TokenType.THIS));
+        
+        LoxFunction method = superclass.findMethod(expr.method.lexeme);
+
+        if (method == null) {
+            throw new RuntimeError(expr.method,
+                "Undefined property '" + expr.method.lexeme + "'.");
+        }
+
+        return method.bind(object);
     }
 }
