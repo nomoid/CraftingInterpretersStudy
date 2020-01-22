@@ -23,6 +23,7 @@ import com.nomoid.jlox.Stmt.Break;
 import com.nomoid.jlox.Stmt.Class;
 import com.nomoid.jlox.Stmt.Expression;
 import com.nomoid.jlox.Stmt.Function;
+import com.nomoid.jlox.Stmt.Getter;
 import com.nomoid.jlox.Stmt.If;
 import com.nomoid.jlox.Stmt.Print;
 import com.nomoid.jlox.Stmt.Return;
@@ -133,21 +134,21 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             if (scope.containsKey(name.lexeme)) {
                 ScopeDeclaration oldDeclaration;
                 switch (type) {
-                    case USE:
-                        // Using a variable
-                        oldDeclaration = scope.get(name.lexeme);
-                        scope.put(name.lexeme, new ScopeDeclaration(oldDeclaration, DeclarationState.USED));
-                        break;
-                    case ASSIGN:
-                        oldDeclaration = scope.get(name.lexeme);
-                        if (oldDeclaration.state == DeclarationState.DECLARED) {
-                            // First time defining
-                            scope.put(name.lexeme, new ScopeDeclaration(oldDeclaration, DeclarationState.INITIALIZED));
-                        }
-                        break;
-                    case THIS:
-                        // Do nothing;
-                        break;
+                case USE:
+                    // Using a variable
+                    oldDeclaration = scope.get(name.lexeme);
+                    scope.put(name.lexeme, new ScopeDeclaration(oldDeclaration, DeclarationState.USED));
+                    break;
+                case ASSIGN:
+                    oldDeclaration = scope.get(name.lexeme);
+                    if (oldDeclaration.state == DeclarationState.DECLARED) {
+                        // First time defining
+                        scope.put(name.lexeme, new ScopeDeclaration(oldDeclaration, DeclarationState.INITIALIZED));
+                    }
+                    break;
+                case THIS:
+                    // Do nothing;
+                    break;
                 }
                 interpreter.resolve(expr, scopes.size() - 1 - i);
                 return;
@@ -225,8 +226,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
         if (stmt.value != null) {
             if (currentFunction == FunctionType.INITIALIZER) {
-                Lox.error(stmt.keyword,
-                    "Cannot return a value from an initializer.");
+                Lox.error(stmt.keyword, "Cannot return a value from an initializer.");
             }
             resolve(stmt.value);
         }
@@ -347,8 +347,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
         beginScope();
         // Don't need to track usage for 'this'
-        scopes.peek().put("this", new ScopeDeclaration(stmt.name,
-            DeclarationState.USED));
+        scopes.peek().put("this", new ScopeDeclaration(stmt.name, DeclarationState.USED));
         for (Stmt.Function method : stmt.methods) {
             FunctionType declaration = FunctionType.METHOD;
             if (method.name.lexeme.equals(Interpreter.INIT_STRING)) {
@@ -358,8 +357,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         }
         // 'this' for class is the class object itself
         for (Stmt.Function staticFunction : stmt.statics) {
-            resolveFunction(new FunctionDeclaration(staticFunction),
-                FunctionType.METHOD);
+            resolveFunction(new FunctionDeclaration(staticFunction), FunctionType.METHOD);
+        }
+        // Resolve getters
+        for (Stmt.Getter getter : stmt.getters) {
+            resolveFunction(new GetterDeclaration(getter), FunctionType.METHOD);
         }
         endScope();
 
@@ -384,11 +386,16 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitThisExpr(This expr) {
         if (currentClass == ClassType.NONE) {
-            Lox.error(expr.keyword,
-                "Cannot use 'this' outside of a class.");
+            Lox.error(expr.keyword, "Cannot use 'this' outside of a class.");
             return null;
         }
         resolveLocal(expr, expr.keyword, ResolveLocalType.THIS);
         return null;
+    }
+
+    @Override
+    public Void visitGetterStmt(Getter stmt) {
+        throw new InterpreterException(stmt.name,
+            "Getters cannot be visited outside of class context.");
     }
 }

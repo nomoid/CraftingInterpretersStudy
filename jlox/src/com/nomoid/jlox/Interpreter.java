@@ -23,6 +23,7 @@ import com.nomoid.jlox.Stmt.Break;
 import com.nomoid.jlox.Stmt.Class;
 import com.nomoid.jlox.Stmt.Expression;
 import com.nomoid.jlox.Stmt.Function;
+import com.nomoid.jlox.Stmt.Getter;
 import com.nomoid.jlox.Stmt.If;
 import com.nomoid.jlox.Stmt.Print;
 import com.nomoid.jlox.Stmt.Return;
@@ -296,18 +297,21 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
         Map<String, LoxFunction> statics = new HashMap<>();
         for (Stmt.Function staticFunction : stmt.statics) {
-            LoxFunction function = new LoxFunction(staticFunction, environment,
-                false);
+            LoxFunction function = new LoxFunction(staticFunction, environment, false);
             statics.put(staticFunction.name.lexeme, function);
         }
         Map<String, LoxFunction> methods = new HashMap<>();
         for (Stmt.Function method : stmt.methods) {
-            LoxFunction function = new LoxFunction(method, environment,
-                method.name.lexeme.equals(INIT_STRING));
+            LoxFunction function = new LoxFunction(method, environment, method.name.lexeme.equals(INIT_STRING));
             methods.put(method.name.lexeme, function);
         }
+        Map<String, LoxFunction> getters = new HashMap<>();
+        for (Stmt.Getter getter : stmt.getters) {
+            LoxFunction function = new LoxFunction(getter, environment, false);
+            getters.put(getter.name.lexeme, function);
+        }
 
-        LoxClass klass = new LoxClass(stmt.name.lexeme, methods, statics);
+        LoxClass klass = new LoxClass(stmt.name.lexeme, methods, statics, getters);
         environment.assign(stmt.name, klass);
         return null;
     }
@@ -427,7 +431,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Object visitGetExpr(Get expr) {
         Object object = evaluate(expr.object);
         if (object instanceof LoxInstance) {
-            return ((LoxInstance) object).get(expr.name);
+            return ((LoxInstance) object).get(this, expr.name);
         }
 
         throw new RuntimeError(expr.name, "Only instances have properties.");
@@ -445,7 +449,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
         Object value = evaluate(expr.value);
         if (binaryOp != null) {
-            Object original = instance.get(expr.name);
+            Object original = instance.get(this, expr.name);
             value = binaryOp(original, binaryOp, value);
         }
         instance.set(expr.name, value);
@@ -474,5 +478,11 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitThisExpr(This expr) {
         return lookUpVariable(expr.keyword, expr);
+    }
+
+    @Override
+    public Void visitGetterStmt(Getter stmt) {
+        throw new InterpreterException(stmt.name,
+            "Getters cannot be visited outside of class context.");
     }
 }

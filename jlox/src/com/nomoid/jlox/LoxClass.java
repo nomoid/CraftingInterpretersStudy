@@ -1,11 +1,13 @@
 package com.nomoid.jlox;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
     final String name;
     private final Map<String, LoxFunction> methods;
+    private final Map<String, LoxFunction> getters;
     static final LoxClasslike none = new LoxClasslike(){
         
         @Override
@@ -17,19 +19,27 @@ class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
         public LoxFunction findMethod(String name) {
             return null;
         }
+
+        @Override
+        public LoxFunction findGetter(String name) {
+            return null;
+        }
     };
 
     LoxClass(String name, Map<String, LoxFunction> methods,
-            Map<String, LoxFunction> statics) {
+            Map<String, LoxFunction> statics,
+            Map<String, LoxFunction> getters) {
         super(new LoxClass(name, statics));
         this.name = name;
         this.methods = methods;
+        this.getters = getters;
     }
 
     private LoxClass(String name, Map<String, LoxFunction> statics) {
         super(none);
         this.name = name + " metaclass";
         this.methods = statics;
+        this.getters = new HashMap<>();
     }
 
     @Override
@@ -69,4 +79,13 @@ class LoxClass extends LoxInstance implements LoxCallable, LoxClasslike{
 
         return null;
     }
+
+    @Override
+    public LoxFunction findGetter(String name) {
+        if (getters.containsKey(name)) {
+            return getters.get(name);
+        }
+        return null;
+    }
+    
 }

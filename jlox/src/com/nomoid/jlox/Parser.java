@@ -74,23 +74,37 @@ class Parser {
         }
     }
 
-    // classDecl   → "class" IDENTIFIER "{" function* "}" ;
+    // classDecl   → "class" IDENTIFIER "{" (function | static | getter)* "}" ;
+    // static      → "class" IDENTIFIER
+    // getter      → IDENTIFIER block
     private Stmt classDeclaration() {
         Token name = consume(IDENTIFIER, "Expect class name.");
         consume(LEFT_BRACE, "Expect '{' before class body.");
         List<Stmt.Function> statics = new ArrayList<>();
         List<Stmt.Function> methods = new ArrayList<>();
+        List<Stmt.Getter> getters = new ArrayList<>();
         while (!check(RIGHT_BRACE) && !isAtEnd()) {
             if (match(CLASS)) {
                 // Add static function
                 statics.add(function("static function"));
+            }
+            else if (peek().type == TokenType.IDENTIFIER &&
+                    peekNext().type == TokenType.LEFT_BRACE) {
+                getters.add(getter());
             }
             else {
                 methods.add(function("method"));
             }
         }
         consume(RIGHT_BRACE, "Expect '}' after class body.");
-        return new Stmt.Class(name, methods, statics);
+        return new Stmt.Class(name, methods, statics, getters);
+    }
+
+    private Stmt.Getter getter() {
+        Token name = consume(IDENTIFIER, "Expect getter name.");
+        consume(LEFT_BRACE, "Expect '{' before getter body.");
+        List<Stmt> body = block();
+        return new Stmt.Getter(name, body);
     }
 
     // funDecl  → "fun" function ;

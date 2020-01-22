@@ -18,6 +18,11 @@ class LoxFunction implements LoxCallable {
         this(new LambdaDeclaration(declaration), closure, isInitializer);
     }
 
+    LoxFunction(Stmt.Getter declaration, Environment closure,
+            boolean isInitializer) {
+        this(new GetterDeclaration(declaration), closure, isInitializer);
+    }
+
     LoxFunction(Declaration declaration, Environment closure,
             boolean isInitializer) {
         this.closure = closure;

@@ -67,3 +67,34 @@ class LambdaDeclaration implements Declaration {
         return lambda.keyword;
     }
 }
+
+class GetterDeclaration implements Declaration {
+
+    private final Stmt.Getter getter;
+
+    GetterDeclaration(Stmt.Getter getter) {
+        this.getter = getter;
+    }
+
+    @Override
+    public String name() {
+        return getter.name.lexeme;
+    }
+
+    @Override
+    public List<Token> params() {
+        // No params
+        return List.of();
+    }
+
+    @Override
+    public List<Stmt> body() {
+        return getter.body;
+    }
+
+    @Override
+    public Token token() {
+        return getter.name;
+    }
+
+}
