@@ -1,14 +1,16 @@
 #include <stdlib.h>
-
-#define UNUSED(x) (void)(x)
+#include <string.h>
 
 #include "memory.h"
 
-void* reallocate(void* previous, size_t oldSize, size_t newSize) {
-    UNUSED(oldSize);
+void* reallocate(void* previous, size_t oldSize, size_t newSize, bool zero) {
     if (newSize == 0) {
         free(previous);
         return NULL;
     }
-    return realloc(previous, newSize);
+    void* alloc = realloc(previous, newSize);
+    if (newSize > oldSize && zero) {
+        memset((void *)((size_t)alloc + oldSize), 0, newSize - oldSize);
+    }
+    return alloc;
 }

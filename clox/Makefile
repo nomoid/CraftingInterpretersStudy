@@ -8,3 +8,4 @@ clox: *.c *.h
 .PHONY: all clean
 clean:
 	rm clox.exe
+	rm *.stackdump
