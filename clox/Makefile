@@ -1,4 +1,4 @@
-CFLAGS=-g -Wall -Wconversion -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow
+CFLAGS=-g -Wall -Wconversion -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow -Wswitch
 
 all: clox
 

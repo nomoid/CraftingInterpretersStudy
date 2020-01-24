@@ -5,11 +5,26 @@
 #include "value.h"
 
 typedef enum {
+    // Pushes the nth constant onto the stack.
     // opcode index
     OP_CONSTANT,
+    // Pushes the nth constant onto the stack. Used when there are more than
+    // 255 constants.
     // little endian
     // opcode index1 index2 index3
     OP_CONSTANT_LONG,
+    // Pops the top two values from the stack, performs the specified operator,
+    // and pushes them onto the stack. The left-side argument is the second
+    // value popped, while the right-side argument in the first value popped.
+    // opcode
+    OP_ADD,
+    OP_SUBTRACT,
+    OP_MULTIPLY,
+    OP_DIVIDE,
+    // Negates the top value on the stack.
+    // opcode
+    OP_NEGATE,
+    // Pops and returns the top value of the stack.
     // opcode
     OP_RETURN,
 } OpCode;
