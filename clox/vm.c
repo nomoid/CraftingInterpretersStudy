@@ -1,27 +1,69 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "common.h"
 #include "vm.h"
 #include "endian.h"
 #include "debug.h"
+#include "memory.h"
 
 #define UNUSED(x) (void)(x)
 
 static void resetStack(VM *vm) {
+#ifdef CLOX_VARIABLE_STACK
+    FREE_ARRAY(Value, vm->stack, STACK_CAPACITY(vm));
+    vm->stack = GROW_ARRAY(NULL, Value, 0, STACK_DEFAULT);
+    if (vm->stack == NULL) {
+        // Out of memory
+        // TODO handle error case
+        exit(100);
+    }
+    vm->stackMax = vm->stack + STACK_DEFAULT;
+#endif
     vm->stackTop = vm->stack;
 }
 
 void initVM(VM *vm) {
+#ifdef CLOX_VARIABLE_STACK
+    vm->stack = NULL;
+#endif
     resetStack(vm);
 }
 
 void freeVM(VM *vm) {
+#ifdef CLOX_VARIABLE_STACK
+    size_t capacity = STACK_CAPACITY(vm);
+    FREE_ARRAY(Value, vm->stack, capacity);
+#else
     UNUSED(vm);
+#endif
 }
+
+
+#ifdef CLOX_VARIABLE_STACK
+static void growStack(VM *vm) {
+    size_t position = STACK_POSITION(vm);
+    size_t capacity = STACK_CAPACITY(vm);
+    size_t newCapacity = GROW_CAPACITY(capacity);
+    vm->stack = GROW_ARRAY(vm->stack, Value, capacity, newCapacity);
+    if (vm->stack == NULL) {
+        // Out of memory
+        // TODO handle error case
+        exit(100);
+    }
+    vm->stackTop = vm->stack + position;
+    vm->stackMax = vm->stack + newCapacity;
+}
+#endif
 
 void push(VM *vm, Value value) {
     *vm->stackTop = value;
     vm->stackTop++;
+#ifdef CLOX_VARIABLE_STACK
+    if (vm->stackTop == vm->stackMax) {
+        growStack(vm);
+    }
+#endif
 }
 
 Value pop(VM *vm) {

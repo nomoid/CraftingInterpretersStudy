@@ -1,4 +1,4 @@
-CFLAGS=-g -Wall -Wconversion -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow -Wswitch
+CFLAGS=-ggdb -Wall -Wconversion -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow -Wswitch
 
 all: clox
 
