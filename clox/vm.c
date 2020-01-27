@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "compiler.h"
 #include "vm.h"
 #include "endian.h"
 #include "debug.h"
@@ -9,7 +10,7 @@
 
 #define UNUSED(x) (void)(x)
 
-static void resetStack(VM *vm) {
+static void resetStack(VM* vm) {
 #ifdef CLOX_VARIABLE_STACK
     FREE_ARRAY(Value, vm->stack, STACK_CAPACITY(vm));
     vm->stack = GROW_ARRAY(NULL, Value, 0, STACK_DEFAULT);
@@ -23,14 +24,14 @@ static void resetStack(VM *vm) {
     vm->stackTop = vm->stack;
 }
 
-void initVM(VM *vm) {
+void initVM(VM* vm) {
 #ifdef CLOX_VARIABLE_STACK
     vm->stack = NULL;
 #endif
     resetStack(vm);
 }
 
-void freeVM(VM *vm) {
+void freeVM(VM* vm) {
 #ifdef CLOX_VARIABLE_STACK
     size_t capacity = STACK_CAPACITY(vm);
     FREE_ARRAY(Value, vm->stack, capacity);
@@ -41,7 +42,7 @@ void freeVM(VM *vm) {
 
 
 #ifdef CLOX_VARIABLE_STACK
-static void growStack(VM *vm) {
+static void growStack(VM* vm) {
     size_t position = STACK_POSITION(vm);
     size_t capacity = STACK_CAPACITY(vm);
     size_t newCapacity = GROW_CAPACITY(capacity);
@@ -56,7 +57,7 @@ static void growStack(VM *vm) {
 }
 #endif
 
-void push(VM *vm, Value value) {
+void push(VM* vm, Value value) {
     *vm->stackTop = value;
     vm->stackTop++;
 #ifdef CLOX_VARIABLE_STACK
@@ -71,7 +72,7 @@ Value pop(VM *vm) {
     return *vm->stackTop;
 }
 
-static InterpretResult run(VM *vm) {
+static InterpretResult run(VM* vm) {
 #define READ_BYTE() (*vm->ip++)
 #define READ_CONSTANT() (vm->chunk->constants.values[READ_BYTE()])
 #define READ_CONSTANT_POS(pos) (vm->chunk->constants.values[(pos)])
@@ -130,8 +131,11 @@ static InterpretResult run(VM *vm) {
 #undef BINARY_OP
 }
 
-InterpretResult interpret(VM *vm, Chunk *chunk) {
-    vm->chunk = chunk;
-    vm->ip = vm->chunk->code;
-    return run(vm);
+InterpretResult interpret(VM* vm, const char* source) {
+    compile(source);
+    // Suppress unused
+    if (0) {
+        run(vm);
+    }
+    return INTERPRET_OK;
 }

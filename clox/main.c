@@ -1,42 +1,87 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "chunk.h"
 #include "debug.h"
 #include "vm.h"
 
-#define UNUSED(x) (void)(x)
-
 VM vm;
 
-int main(int argc, const char* argv[]) {
-    // Suppress unused warnings
-    UNUSED(argc);
-    UNUSED(argv);
+static void repl() {
+    char line[1024];
+    memset(line, 0, sizeof(line));
+    while (1) {
+        printf("> ");
+        if (!fgets(line, sizeof(line), stdin)) {
+            printf("\n");
+            break;
+        }
 
-    initVM(&vm);
-    
-    Chunk chunk;
-    initChunk(&chunk);
-
-    for (int i = 0; i < 1000; i++) {
-        writeConstant(&chunk, 1.2, 123);
+        interpret(&vm, line);
     }
-    writeConstant(&chunk, 1.2, 123);
-    writeConstant(&chunk, 3.4, 123);
+}
 
-    writeChunk(&chunk, OP_ADD, 123);
+static char* readFile(const char* path) {
+    FILE* file = fopen(path, "rb");
 
-    writeConstant(&chunk, 5.6, 123);
+    if (file == NULL) {
+        fprintf(stderr, "Could not open file \"%s\".\n", path);
+        exit(74);
+    }
 
-    writeChunk(&chunk, OP_DIVIDE, 123);
-    writeChunk(&chunk, OP_NEGATE, 123);
+    fseek(file, 0L, SEEK_END);
+    size_t fileSize = (size_t)ftell(file);
+    if (fileSize == (size_t)-1L) {
+        fprintf(stderr, "Could not determine file size \"%s\".\n", path);
+        exit(74);
+    }
+    rewind(file);
 
-    writeChunk(&chunk, OP_RETURN, 123);
+    char* buffer = (char*)malloc(fileSize + 1);
+    if (buffer == NULL) {
+        fprintf(stderr, "Not enough memory to read \"%s\".\n", path);
+        exit(74);
+    }
+    size_t bytesRead = fread(buffer, sizeof(char), fileSize, file);
+    if (bytesRead < fileSize) {
+        fprintf(stderr, "Could not read file \"%s\".\n", path);
+        exit(74);
+    }
+    buffer[bytesRead] = '\0';
 
-    // disassembleChunk(&chunk, "test chunk");
-    interpret(&vm, &chunk);
+    fclose(file);
+    return buffer;
+}
+
+static void runFile(const char* path) {
+    char* source = readFile(path);
+    InterpretResult result = interpret(&vm, source);
+    free(source);
+
+    if (result == INTERPRET_COMPILE_ERROR) {
+        exit(65);
+    }
+    if (result == INTERPRET_RUNTIME_ERROR) {
+        exit(70);
+    }
+}
+
+int main(int argc, const char* argv[]) {
+    initVM(&vm);
+
+    if (argc == 1) {
+        repl();
+    }
+    else if (argc == 2) {
+        runFile(argv[1]);
+    }
+    else {
+        fprintf(stderr, "Usage: clox [path]\n");
+        exit(64);
+    }
+    
     freeVM(&vm);
-    freeChunk(&chunk);
     return 0;
 }
