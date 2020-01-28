@@ -9,7 +9,7 @@
 
 VM vm;
 
-static void repl() {
+void repl() {
     char line[1024];
     memset(line, 0, sizeof(line));
     while (1) {
@@ -55,7 +55,7 @@ static char* readFile(const char* path) {
     return buffer;
 }
 
-static void runFile(const char* path) {
+void runFile(const char* path) {
     char* source = readFile(path);
     InterpretResult result = interpret(&vm, source);
     free(source);
