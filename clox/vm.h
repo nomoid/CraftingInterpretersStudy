@@ -3,8 +3,8 @@
 
 #include "chunk.h"
 #include "value.h"
+#include "settings.h"
 
-#define CLOX_VARIABLE_STACK
 #define STACK_DEFAULT 256
 
 #ifdef CLOX_VARIABLE_STACK

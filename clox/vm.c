@@ -132,10 +132,19 @@ static InterpretResult run(VM* vm) {
 }
 
 InterpretResult interpret(VM* vm, const char* source) {
-    compile(source);
-    // Suppress unused
-    if (0) {
-        run(vm);
+    Chunk chunk;
+    initChunk(&chunk);
+
+    if (!compile(source, &chunk)) {
+        freeChunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
     }
-    return INTERPRET_OK;
+    
+    vm->chunk = &chunk;
+    vm->ip = vm->chunk->code;
+
+    InterpretResult result = run(vm);
+
+    freeChunk(&chunk);
+    return result;
 }

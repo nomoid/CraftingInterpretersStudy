@@ -1,7 +1,7 @@
 #ifndef clox_endian_h
 #define clox_endian_h
 
-#define CLOX_LITTLE_ENDIAN
+#include "settings.h"
 
 #ifdef CLOX_LITTLE_ENDIAN
 // Little endian definition

@@ -1,6 +1,40 @@
 #ifndef clox_compiler_h
 #define clox_compiler_h
 
-void compile(const char* source);
+#include "vm.h"
+#include "scanner.h"
+
+typedef struct {
+    Token current;
+    Token previous;
+    bool hadError;
+    bool panicMode;
+    Scanner* scanner;
+    Chunk* currentChunk;
+} Parser;
+
+typedef void (*ParseFn)(Parser *);
+
+typedef enum {
+  PREC_NONE,
+  PREC_ASSIGNMENT,  // =
+  PREC_OR,          // or
+  PREC_AND,         // and
+  PREC_EQUALITY,    // == !=
+  PREC_COMPARISON,  // < > <= >=
+  PREC_TERM,        // + -
+  PREC_FACTOR,      // * /
+  PREC_UNARY,       // ! -
+  PREC_CALL,        // . ()
+  PREC_PRIMARY
+} Precedence;
+
+typedef struct {
+    ParseFn prefix;
+    ParseFn infix;
+    Precedence precedence;
+} ParseRule;
+
+bool compile(const char* source, Chunk* chunk);
 
 #endif

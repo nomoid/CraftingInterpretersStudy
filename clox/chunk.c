@@ -1,5 +1,6 @@
 #include <stdlib.h>
 
+#include "settings.h"
 #include "chunk.h"
 #include "memory.h"
 #include "endian.h"
@@ -55,33 +56,42 @@ int writeChunk(Chunk* chunk, uint8_t byte, size_t line) {
 // Adds a single constant to the Chunk
 // Returns index where Value was added
 // Returns -1 if failed to add
-static size_t addConstant(Chunk* chunk, Value value) {
-    // Maximum 2**24-2 constants
-    if (chunk->constants.count >= 16777214) {
-        return (size_t)-1;
+static int addConstant(Chunk* chunk, Value value) {
+#ifdef CLOX_LONG_CONSTANTS
+// Maximum 2**24-2 constants
+#define MAX_CONSTANT_COUNT 16777214
+#else
+#define MAX_CONSTANT_CONUT 256
+#endif
+    if (chunk->constants.count >= MAX_CONSTANT_COUNT) {
+        return -1;
     }
-    if (writeValueArray(&chunk->constants, value) == -1) {
-        return (size_t)-1;
-    }
-    return (size_t)(chunk->constants.count - 1);
+    ERROR_GUARD(writeValueArray(&chunk->constants, value));
+    return (int)chunk->constants.count - 1;
+#undef MAX_CONSTANT_COUNT
 }
 
 // Writes a constant to the Chunk
 // Combines addConstant and writeChunk
 int writeConstant(Chunk* chunk, Value value, size_t line) {
-    size_t index = addConstant(chunk, value);
-    if (index == (size_t) -1) {
-        return -1;
-    }
+    int index = addConstant(chunk, value);
+    ERROR_GUARD(index);
+#ifdef CLOX_LONG_CONSTANTS
     if (index >= 256) {
-        writeChunk(chunk, OP_CONSTANT_LONG, line);
+        ERROR_GUARD(writeChunk(chunk, OP_CONSTANT_LONG, line));
         for (int i = 0; i < 3; i++) {
-            writeChunk(chunk, BYTE_FROM_3WORD(index, i), line);
+            ERROR_GUARD(writeChunk(chunk, BYTE_FROM_3WORD(index, i), line));
         }
     }
+#else
+    if (index >= 256) {
+        // Out of constants
+        return -1;
+    }
+#endif
     else {
-        writeChunk(chunk, OP_CONSTANT, line);
-        writeChunk(chunk, (uint8_t)index, line);
+        ERROR_GUARD(writeChunk(chunk, OP_CONSTANT, line));
+        ERROR_GUARD(writeChunk(chunk, (uint8_t)index, line));
     }
     return 0;
 }
