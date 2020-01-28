@@ -6,7 +6,7 @@
 #include "compiler.h"
 
 #ifdef DEBUG_PRINT_CODE
-#include "debug.h"     
+#include "debug.h"
 #endif
 
 static void expression(Parser* parser);
@@ -77,12 +77,10 @@ static void emitByte(Parser* parser, uint8_t byte) {
     }
 }
 
-// Unused
-
-// static void emitBytes(Parser* parser, uint8_t byte1, uint8_t byte2) {
-//     emitByte(parser, byte1);
-//     emitByte(parser, byte2);
-// }
+static void emitBytes(Parser* parser, uint8_t byte1, uint8_t byte2) {
+    emitByte(parser, byte1);
+    emitByte(parser, byte2);
+}
 
 static void emitReturn(Parser* parser) {
     emitByte(parser, OP_RETURN);
@@ -106,7 +104,22 @@ static void emitConstant(Parser* parser, Value value) {
 }
 
 static void number(Parser* parser) {
-    double value = strtod(parser->previous.start, NULL);
+    TokenType numberType = parser->previous.type;
+    Value value;
+    if (numberType == TOKEN_NUMBER) {
+        double vfloat = strtod(parser->previous.start, NULL);
+        value = FLOAT_VAL(vfloat);
+    }
+#ifdef CLOX_INTEGER_TYPE
+    else if (numberType == TOKEN_INTEGER) {
+        int64_t vint = strtoll(parser->previous.start, NULL, 10);
+        value = INT_VAL(vint);
+    }
+#endif
+    else {
+        error(parser, "Illegal number type.");
+        return;
+    }
     emitConstant(parser, value);
 }
 
@@ -123,10 +136,26 @@ static void binary(Parser* parser) {
     parsePrecedence(parser, (Precedence)(rule->precedence + 1));
 
     switch (operatorType) {
-        case TOKEN_PLUS:  emitByte(parser, OP_ADD); break;
-        case TOKEN_MINUS: emitByte(parser, OP_SUBTRACT); break;
-        case TOKEN_STAR:  emitByte(parser, OP_MULTIPLY); break;
-        case TOKEN_SLASH: emitByte(parser, OP_DIVIDE); break;
+        case TOKEN_BANG_EQUAL:    emitBytes(parser, OP_EQUAL, OP_NOT); break;
+        case TOKEN_EQUAL_EQUAL:   emitByte(parser, OP_EQUAL); break;
+        case TOKEN_GREATER:       emitByte(parser, OP_GREATER); break;
+        case TOKEN_GREATER_EQUAL: emitBytes(parser, OP_LESS, OP_NOT); break;
+        case TOKEN_LESS:          emitByte(parser, OP_LESS); break;
+        case TOKEN_LESS_EQUAL:    emitBytes(parser, OP_GREATER, OP_NOT); break;
+        case TOKEN_PLUS:          emitByte(parser, OP_ADD); break;
+        case TOKEN_MINUS:         emitByte(parser, OP_SUBTRACT); break;
+        case TOKEN_STAR:          emitByte(parser, OP_MULTIPLY); break;
+        case TOKEN_SLASH:         emitByte(parser, OP_DIVIDE); break;
+        default:
+            return; // Unreachable.
+    }
+}
+
+static void literal(Parser* parser) {
+    switch (parser->previous.type) {
+        case TOKEN_FALSE: emitByte(parser, OP_FALSE); break;
+        case TOKEN_TRUE: emitByte(parser, OP_TRUE); break;
+        case TOKEN_NIL: emitByte(parser, OP_NIL); break;
         default:
             return; // Unreachable.
     }
@@ -142,6 +171,9 @@ static void unary(Parser* parser) {
     switch (operatorType) {
         case TOKEN_MINUS:
             emitByte(parser, OP_NEGATE);
+            break;
+        case TOKEN_BANG:
+            emitByte(parser, OP_NOT);
             break;
         default:
             // Unreachable code
@@ -161,31 +193,34 @@ ParseRule rules[] = {
   { NULL,     NULL,    PREC_NONE },       // TOKEN_SEMICOLON
   { NULL,     binary,  PREC_FACTOR },     // TOKEN_SLASH
   { NULL,     binary,  PREC_FACTOR },     // TOKEN_STAR
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_BANG
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_BANG_EQUAL
+  { unary,    NULL,    PREC_NONE },       // TOKEN_BANG
+  { NULL,     binary,  PREC_EQUALITY },   // TOKEN_BANG_EQUAL
   { NULL,     NULL,    PREC_NONE },       // TOKEN_EQUAL
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_EQUAL_EQUAL
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_GREATER
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_GREATER_EQUAL
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_LESS
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_LESS_EQUAL
+  { NULL,     binary,  PREC_EQUALITY },   // TOKEN_EQUAL_EQUAL
+  { NULL,     binary,  PREC_COMPARISON }, // TOKEN_GREATER
+  { NULL,     binary,  PREC_COMPARISON }, // TOKEN_GREATER_EQUAL
+  { NULL,     binary,  PREC_COMPARISON }, // TOKEN_LESS
+  { NULL,     binary,  PREC_COMPARISON }, // TOKEN_LESS_EQUAL
   { NULL,     NULL,    PREC_NONE },       // TOKEN_IDENTIFIER
   { NULL,     NULL,    PREC_NONE },       // TOKEN_STRING
   { number,   NULL,    PREC_NONE },       // TOKEN_NUMBER
+#ifdef CLOX_INTEGER_TYPE
+  { number,   NULL,    PREC_NONE },       // TOKEN_INTEGER
+#endif
   { NULL,     NULL,    PREC_NONE },       // TOKEN_AND
   { NULL,     NULL,    PREC_NONE },       // TOKEN_CLASS
   { NULL,     NULL,    PREC_NONE },       // TOKEN_ELSE
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_FALSE
+  { literal,  NULL,    PREC_NONE },       // TOKEN_FALSE
   { NULL,     NULL,    PREC_NONE },       // TOKEN_FOR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_FUN
   { NULL,     NULL,    PREC_NONE },       // TOKEN_IF
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_NIL
+  { literal,  NULL,    PREC_NONE },       // TOKEN_NIL
   { NULL,     NULL,    PREC_NONE },       // TOKEN_OR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_PRINT
   { NULL,     NULL,    PREC_NONE },       // TOKEN_RETURN
   { NULL,     NULL,    PREC_NONE },       // TOKEN_SUPER
   { NULL,     NULL,    PREC_NONE },       // TOKEN_THIS
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_TRUE
+  { literal,  NULL,    PREC_NONE },       // TOKEN_TRUE
   { NULL,     NULL,    PREC_NONE },       // TOKEN_VAR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_WHILE
   { NULL,     NULL,    PREC_NONE },       // TOKEN_ERROR

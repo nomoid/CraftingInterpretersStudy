@@ -1,4 +1,4 @@
-CFLAGS=-ggdb -Wall -Wconversion -Wextra -Wfloat-equal -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow -Wswitch
+CFLAGS=-ggdb -Wall -Wconversion -Wextra -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow -Wswitch
 EMCCFLAGS=-s EXPORTED_FUNCTIONS='["_runFile"]' -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["ccall", "cwrap"]'
 
 all: clox

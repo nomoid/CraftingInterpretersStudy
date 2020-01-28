@@ -13,6 +13,17 @@ typedef enum {
     // little endian
     // opcode index1 index2 index3
     OP_CONSTANT_LONG,
+    // Pushes the specified literal to the stack.
+    // opcode
+    OP_NIL,
+    OP_TRUE,
+    OP_FALSE,
+    // Pops the top two values from the stack, performs the specified
+    // comparison, and pushes the resuling boolean on the stack.
+    // opcode
+    OP_EQUAL,
+    OP_GREATER,
+    OP_LESS,
     // Pops the top two values from the stack, performs the specified operator,
     // and pushes them onto the stack. The left-side argument is the second
     // value popped, while the right-side argument in the first value popped.
@@ -21,6 +32,10 @@ typedef enum {
     OP_SUBTRACT,
     OP_MULTIPLY,
     OP_DIVIDE,
+    // Takes the top value of the stack, determines if it's truthy,
+    // and negates it.
+    // opcode
+    OP_NOT,
     // Negates the top value on the stack.
     // opcode
     OP_NEGATE,

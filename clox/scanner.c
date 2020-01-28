@@ -121,8 +121,13 @@ static void number(Scanner* scanner, Token* token) {
         advance(scanner);
     }
 
+    bool isFloat = false;
+#ifndef CLOX_INTEGER_TYPE
+    isFloat = true;
+#endif
     // Look for decimal part
     if (peek(scanner) == '.' && isDigit(peekNext(scanner))) {
+        isFloat = true;
         // Consume the '.'
         advance(scanner);
 
@@ -130,7 +135,14 @@ static void number(Scanner* scanner, Token* token) {
             advance(scanner);
         }
     }
-    MAKE_TOKEN(TOKEN_NUMBER);
+    if (isFloat) {
+        MAKE_TOKEN(TOKEN_NUMBER);
+    }
+#ifdef CLOX_INTEGER_TYPE
+    else {
+        MAKE_TOKEN(TOKEN_INTEGER);
+    }
+#endif
     return;
 }
 

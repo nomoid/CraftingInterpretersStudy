@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -22,6 +23,20 @@ static void resetStack(VM* vm) {
     vm->stackMax = vm->stack + STACK_DEFAULT;
 #endif
     vm->stackTop = vm->stack;
+}
+
+static void runtimeError(VM* vm, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fputs("\n", stderr);
+
+    size_t instruction = (size_t)(vm->ip - vm->chunk->code);
+    size_t line = getLine(vm->chunk, instruction);
+    fprintf(stderr, "[line %ld] in script\n", line);
+
+    resetStack(vm);
 }
 
 void initVM(VM* vm) {
@@ -67,9 +82,30 @@ void push(VM* vm, Value value) {
 #endif
 }
 
-Value pop(VM *vm) {
+Value pop(VM* vm) {
     vm->stackTop--;
     return *vm->stackTop;
+}
+
+static Value peek(VM* vm, int distance) {
+    return vm->stackTop[-1 - distance];
+}
+
+static Value negate(Value input) {
+#ifdef CLOX_INTEGER_TYPE
+    if (IS_FLOAT(input)) {
+        return FLOAT_VAL(-AS_FLOAT(input));
+    }
+    else {
+        return INT_VAL(-AS_INT(input));
+    }
+#else
+    return FLOAT_VAL(-AS_FLOAT(input));
+#endif
+}
+
+static bool isFalsey(Value value) {
+    return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
 static InterpretResult run(VM* vm) {
@@ -79,12 +115,42 @@ static InterpretResult run(VM* vm) {
     while (1) {
 #define PUSH(value) (push(vm, (value)))
 #define POP() (pop(vm))
-#define BINARY_OP(op) \
+#define PEEK(value) (peek(vm, (value)))
+#ifdef CLOX_INTEGER_TYPE
+    #define BINARY_OP(fn1, fn2, op) \
+        do { \
+            if (!IS_NUMBER(PEEK(0)) || !IS_NUMBER(PEEK(1))) { \
+                runtimeError(vm, "Operands must be numbers."); \
+                return INTERPRET_RUNTIME_ERROR; \
+            } \
+            Value b = POP(); \
+            Value a = POP(); \
+            if (IS_FLOAT(b) || IS_FLOAT(a)) { \
+                PUSH(fn1( \
+                    NUMBER_TO_FLOAT(a) op \
+                    NUMBER_TO_FLOAT(b) \
+                )); \
+            } \
+            else { \
+                PUSH(fn2(AS_INT(a) op AS_INT(b))); \
+            } \
+        } while(false)
+    #define BINARY_OP_NUMBER(op) BINARY_OP(FLOAT_VAL, INT_VAL, op)
+    #define BINARY_OP_BOOL(op) BINARY_OP(BOOL_VAL, BOOL_VAL, op)
+#else
+    #define BINARY_OP(fn, op) \
     do { \
-        double b = POP(); \
-        double a = POP(); \
-        PUSH(a op b); \
+        if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+            runtimeError(vm, "Operands must be numbers."); \
+            return INTERPRET_RUNTIME_ERROR; \
+        } \
+        Value b = POP(); \
+        Value a = POP(); \
+        PUSH(fn(AS_FLOAT(a) op AS_FLOAT(b))); \
     } while(false)
+    #define BINARY_OP_NUMBER(op) BINARY_OP(FLOAT_VAL, op)
+    #define BINARY_OP_BOOL(op) BINARY_OP(BOOL_VAL, op)
+#endif
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
         for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
@@ -111,11 +177,28 @@ static InterpretResult run(VM* vm) {
                 PUSH(constant);
                 break;
             }
-            case OP_ADD:      BINARY_OP(+); break;
-            case OP_SUBTRACT: BINARY_OP(-); break;
-            case OP_MULTIPLY: BINARY_OP(*); break;
-            case OP_DIVIDE:   BINARY_OP(/); break;
-            case OP_NEGATE:   PUSH(-POP()); break;
+            case OP_NIL:   PUSH(NIL_VAL); break;
+            case OP_TRUE:  PUSH(BOOL_VAL(true)); break;
+            case OP_FALSE: PUSH(BOOL_VAL(false)); break;
+            case OP_EQUAL: {
+                Value b = POP();
+                Value a = POP();
+                PUSH(BOOL_VAL(valuesEqual(a, b)));
+                break;
+            }
+            case OP_GREATER:  BINARY_OP_BOOL(>); break;
+            case OP_LESS:     BINARY_OP_BOOL(<); break;
+            case OP_ADD:      BINARY_OP_NUMBER(+); break;
+            case OP_SUBTRACT: BINARY_OP_NUMBER(-); break;
+            case OP_MULTIPLY: BINARY_OP_NUMBER(*); break;
+            case OP_DIVIDE:   BINARY_OP_NUMBER(/); break;
+            case OP_NOT: PUSH(BOOL_VAL(isFalsey(POP()))); break;
+            case OP_NEGATE:
+                if (!IS_NUMBER(PEEK(0))) {
+                    runtimeError(vm, "Operand must be a number.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                PUSH(negate(POP())); break;
             case OP_RETURN: {
                 printValue(POP());
                 printf("\n");
