@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "value.h"
 #include "memory.h"
@@ -43,7 +44,7 @@ void printValue(Value value) {
         case VAL_NIL: printf("nil"); break;
         case VAL_FLOAT: printf("%g", AS_FLOAT(value)); break;
 #ifdef CLOX_INTEGER_TYPE
-        case VAL_INT: printf("%ld", AS_INT(value)); break;
+        case VAL_INT: printf("%" PRId64, AS_INT(value)); break;
 #endif
     }
 }
