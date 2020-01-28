@@ -117,7 +117,7 @@ static InterpretResult run(VM* vm) {
 #define POP() (pop(vm))
 #define PEEK(value) (peek(vm, (value)))
 #ifdef CLOX_INTEGER_TYPE
-    #define BINARY_OP(fn1, fn2, op) \
+    #define BINARY_OP(fn1, fn2, op, divide) \
         do { \
             if (!IS_NUMBER(PEEK(0)) || !IS_NUMBER(PEEK(1))) { \
                 runtimeError(vm, "Operands must be numbers."); \
@@ -132,11 +132,18 @@ static InterpretResult run(VM* vm) {
                 )); \
             } \
             else { \
-                PUSH(fn2(AS_INT(a) op AS_INT(b))); \
+                int64_t vintb = AS_INT(b); \
+                if ((divide) && vintb == 0) { \
+                    runtimeError(vm, "Integer division by zero."); \
+                    return INTERPRET_RUNTIME_ERROR; \
+                } \
+                int64_t vinta = AS_INT(a); \
+                PUSH(fn2(vinta op vintb)); \
             } \
         } while(false)
-    #define BINARY_OP_NUMBER(op) BINARY_OP(FLOAT_VAL, INT_VAL, op)
-    #define BINARY_OP_BOOL(op) BINARY_OP(BOOL_VAL, BOOL_VAL, op)
+    #define BINARY_OP_NUMBER(op) BINARY_OP(FLOAT_VAL, INT_VAL, op, false)
+    #define BINARY_OP_BOOL(op) BINARY_OP(BOOL_VAL, BOOL_VAL, op, false)
+    #define BINARY_OP_DIVIDE(op) BINARY_OP(FLOAT_VAL, INT_VAL, op, true)
 #else
     #define BINARY_OP(fn, op) \
     do { \
@@ -150,6 +157,7 @@ static InterpretResult run(VM* vm) {
     } while(false)
     #define BINARY_OP_NUMBER(op) BINARY_OP(FLOAT_VAL, op)
     #define BINARY_OP_BOOL(op) BINARY_OP(BOOL_VAL, op)
+    #define BINARY_OP_DIVIDE(op) BINARY_OP_NUMBER(op)
 #endif
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
@@ -191,11 +199,11 @@ static InterpretResult run(VM* vm) {
             case OP_ADD:      BINARY_OP_NUMBER(+); break;
             case OP_SUBTRACT: BINARY_OP_NUMBER(-); break;
             case OP_MULTIPLY: BINARY_OP_NUMBER(*); break;
-            case OP_DIVIDE:   BINARY_OP_NUMBER(/); break;
+            case OP_DIVIDE:   BINARY_OP_DIVIDE(/); break;
             case OP_NOT: PUSH(BOOL_VAL(isFalsey(POP()))); break;
             case OP_NEGATE:
                 if (!IS_NUMBER(PEEK(0))) {
-                    runtimeError(vm, "Operand must be a number.");
+                    runtimeError(vm, "Operand for negation must be a number.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 PUSH(negate(POP())); break;
