@@ -1,0 +1,2 @@
+1. One instruction that can be eliminated is `OP_SUBTRACT`. As we mentioned in an earlier chapter, `OP_SUBTRACT` is the same as an `OP_ADD` combined with an `OP_NEGATE`. Other instructions that can be eliminated are the instructions that add values, such as `OP_TRUE` and `OP_NIL`.
+2. On the other hand, some common operations can be encoded as single bytecodes. Some of these include adding by one specifically (`OP_INCREMENT`), small numerical constants (`OP_ZERO, OP_ONE`), and other commonly used functions.
