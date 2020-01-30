@@ -1,12 +1,14 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
 #include "vm.h"
 #include "endian.h"
 #include "debug.h"
+#include "object.h"
 #include "memory.h"
 
 #define UNUSED(x) (void)(x)
@@ -44,14 +46,14 @@ void initVM(VM* vm) {
     vm->stack = NULL;
 #endif
     resetStack(vm);
+    vm->freeList.head = NULL;
 }
 
 void freeVM(VM* vm) {
+    freeObjects(&vm->freeList);
 #ifdef CLOX_VARIABLE_STACK
     size_t capacity = STACK_CAPACITY(vm);
     FREE_ARRAY(Value, vm->stack, capacity);
-#else
-    UNUSED(vm);
 #endif
 }
 
@@ -106,6 +108,19 @@ static Value negate(Value input) {
 
 static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
+static void concatenate(VM* vm) {
+    ObjString* b = AS_STRING(pop(vm));
+    ObjString* a = AS_STRING(pop(vm));
+    int length = a->length + b->length;
+    char* chars = ALLOCATE(char, length + 1, false);
+    memcpy(chars, a->chars, (size_t) a->length);
+    memcpy(chars + a->length, b->chars, (size_t) b->length);
+    chars[length] = '\0';
+
+    ObjString* result = takeString(&vm->freeList, chars, length);
+    push(vm, OBJ_VAL(result));
 }
 
 static InterpretResult run(VM* vm) {
@@ -196,7 +211,22 @@ static InterpretResult run(VM* vm) {
             }
             case OP_GREATER:  BINARY_OP_BOOL(>); break;
             case OP_LESS:     BINARY_OP_BOOL(<); break;
-            case OP_ADD:      BINARY_OP_NUMBER(+); break;
+            case OP_ADD:      {
+                Value peek0 = PEEK(0);
+                Value peek1 = PEEK(1);
+                if (IS_STRING(peek0) && IS_STRING(peek1)) {
+                    concatenate(vm);
+                }
+                else if (IS_NUMBER(peek0) && IS_NUMBER(peek1)) {
+                    BINARY_OP_NUMBER(+);
+                }
+                else {
+                    runtimeError(vm,
+                        "Operand must be two numbers or two strings.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             case OP_SUBTRACT: BINARY_OP_NUMBER(-); break;
             case OP_MULTIPLY: BINARY_OP_NUMBER(*); break;
             case OP_DIVIDE:   BINARY_OP_DIVIDE(/); break;
@@ -226,7 +256,7 @@ InterpretResult interpret(VM* vm, const char* source) {
     Chunk chunk;
     initChunk(&chunk);
 
-    if (!compile(source, &chunk)) {
+    if (!compile(vm, source, &chunk)) {
         freeChunk(&chunk);
         return INTERPRET_COMPILE_ERROR;
     }

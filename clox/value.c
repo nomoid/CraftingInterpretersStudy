@@ -1,7 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
 
+#include "object.h"
 #include "value.h"
 #include "memory.h"
 
@@ -43,6 +45,7 @@ void printValue(Value value) {
         case VAL_BOOL: printf(AS_BOOL(value) ? "true" : "false"); break;
         case VAL_NIL: printf("nil"); break;
         case VAL_FLOAT: printf("%g", AS_FLOAT(value)); break;
+        case VAL_OBJ: printObject(value); break;
 #ifdef CLOX_INTEGER_TYPE
         case VAL_INT: printf("%" PRId64, AS_INT(value)); break;
 #endif
@@ -83,10 +86,32 @@ bool valuesEqual(Value a, Value b) {
         case VAL_BOOL:  return AS_BOOL(a) == AS_BOOL(b);
         case VAL_NIL:   return true;
         case VAL_FLOAT: return AS_FLOAT(a) == AS_FLOAT(b);
+        case VAL_OBJ: {
+            ObjString* aString = AS_STRING(a);
+            ObjString* bString = AS_STRING(b);
+            return aString->length == bString->length &&
+                memcmp(aString->chars, bString->chars, (size_t) aString->length) == 0;
+        }
 #ifdef CLOX_INTEGER_TYPE
         case VAL_INT:   return AS_INT(a) == AS_INT(b);
 #endif
         default:
             return false; // Unreachable.
+    }
+}
+
+void printValueType(Value value) {
+    switch (value.type) {
+        case VAL_BOOL:  printf("%-8s", "BOOL"); break;
+        case VAL_NIL:   printf("%-8s", "NIL"); break;
+        case VAL_FLOAT: printf("%-8s", "FLOAT"); break;
+        case VAL_OBJ:   { 
+            printf("%s", "OBJ-");
+            printObjectType(value);
+            break;
+        }
+#ifdef CLOX_INTEGER_TYPE
+        case VAL_INT:   printf("%-8s", "INT"); break;
+#endif
     }
 }

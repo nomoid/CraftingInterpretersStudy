@@ -32,8 +32,13 @@ static size_t constantInstruction(const char* name, Chunk* chunk, size_t offset,
         constant = chunk->code[offset + 1];
         newOffset = offset + 2;
     }
-    printf("%-16s %4ld '", name, constant);
-    printValue(chunk->constants.values[constant]);
+    printf("%-16s %4ld ", name, constant);
+    Value value = chunk->constants.values[constant];
+#ifdef DEBUG_PRINT_VALUE_TYPE
+    printValueType(value);
+#endif
+    printf("'");
+    printValue(value);
     printf("'\n");
     return newOffset;
 }

@@ -1,6 +1,7 @@
 #ifndef clox_compiler_h
 #define clox_compiler_h
 
+#include "object.h"
 #include "vm.h"
 #include "scanner.h"
 
@@ -11,6 +12,7 @@ typedef struct {
     bool panicMode;
     Scanner* scanner;
     Chunk* currentChunk;
+    FreeList freeList;
 } Parser;
 
 typedef void (*ParseFn)(Parser *);
@@ -35,6 +37,6 @@ typedef struct {
     Precedence precedence;
 } ParseRule;
 
-bool compile(const char* source, Chunk* chunk);
+bool compile(VM* vm, const char* source, Chunk* chunk);
 
 #endif

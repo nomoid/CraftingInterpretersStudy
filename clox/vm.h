@@ -1,6 +1,7 @@
 #ifndef clox_vm_h
 #define clox_vm_h
 
+#include "object.h"
 #include "chunk.h"
 #include "value.h"
 #include "settings.h"
@@ -19,6 +20,7 @@ typedef struct {
     Chunk* chunk;
     uint8_t* ip;
     Value* stackTop;
+    FreeList freeList;
 #ifdef CLOX_VARIABLE_STACK
     Value* stack;
     Value* stackMax;

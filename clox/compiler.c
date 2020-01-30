@@ -123,6 +123,13 @@ static void number(Parser* parser) {
     emitConstant(parser, value);
 }
 
+static void string(Parser* parser) {
+    emitConstant(parser, OBJ_VAL(copyString(
+        &parser->freeList,
+        parser->previous.start + 1,
+        parser->previous.length - 2)));
+}
+
 static void grouping(Parser* parser) {
     expression(parser);
     consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
@@ -202,7 +209,7 @@ ParseRule rules[] = {
   { NULL,     binary,  PREC_COMPARISON }, // TOKEN_LESS
   { NULL,     binary,  PREC_COMPARISON }, // TOKEN_LESS_EQUAL
   { NULL,     NULL,    PREC_NONE },       // TOKEN_IDENTIFIER
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_STRING
+  { string,   NULL,    PREC_NONE },       // TOKEN_STRING
   { number,   NULL,    PREC_NONE },       // TOKEN_NUMBER
 #ifdef CLOX_INTEGER_TYPE
   { number,   NULL,    PREC_NONE },       // TOKEN_INTEGER
@@ -252,7 +259,7 @@ static void expression(Parser* parser) {
     parsePrecedence(parser, PREC_ASSIGNMENT);
 }
 
-bool compile(const char* source, Chunk* chunk) {
+bool compile(VM* vm, const char* source, Chunk* chunk) {
     Scanner scanner;
     initScanner(&scanner, source);
 
@@ -268,5 +275,8 @@ bool compile(const char* source, Chunk* chunk) {
     expression(&parser);
     consume(&parser, TOKEN_EOF, "Expect end of expression.");
     endCompiler(&parser);
+    
+    vm->freeList = parser.freeList;
+
     return !parser.hadError;
 }
