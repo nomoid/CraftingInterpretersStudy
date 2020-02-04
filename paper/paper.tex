@@ -67,6 +67,58 @@
 \usegdlibrary{circular}
 \usegdlibrary{trees}
 
+% Formatted code
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[defaultmono]{droidsansmono}
+\usepackage{listings}
+\usepackage{parskip}
+
+\lstdefinelanguage{Lox}%
+{morekeywords={and, break, class, else, false, fun, for, if, nil, print, return, super, this, true, var, while},
+ % otherkeywords={},
+  % keywordstyle=\color{bluekeywords},
+  sensitive=true,
+  basicstyle=\ttfamily,
+	breaklines=true,
+  xleftmargin=\parindent,
+  aboveskip=\bigskipamount,
+	tabsize=4,
+  morecomment=[l]{//},
+  morecomment=[s]{{(*}{*)}},
+  morestring=[b]",
+  showstringspaces=false,
+  literate={`}{\`}1,
+  % stringstyle=\color{redstrings},
+  keywordstyle=\color[rgb]{0.627,0.126,0.941},
+  commentstyle=\color[rgb]{0.133,0.545,0.133},
+  stringstyle=\color[rgb]{01,0,0},
+}
+\lstset{
+    language=python,
+    basicstyle=\ttfamily\small,
+    aboveskip={1.0\baselineskip},
+    belowskip={1.0\baselineskip},
+    columns=fixed,
+    extendedchars=true,
+    breaklines=true,
+    tabsize=4,
+    prebreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+    frame=lines,
+    showtabs=false,
+    showspaces=false,
+    showstringspaces=false,
+    keywordstyle=\color[rgb]{0.627,0.126,0.941},
+    commentstyle=\color[rgb]{0.133,0.545,0.133},
+    stringstyle=\color[rgb]{01,0,0},
+    numbers=left,
+    numberstyle=\small,
+    stepnumber=1,
+    numbersep=10pt,
+    captionpos=t,
+    escapeinside={\%*}{*)}
+}
+
 \title{Winter Study Report - Crafting Interpreters}
 \author{Markus Feng}
 \date{Due: 2020-01-31}
@@ -120,17 +172,108 @@ Therefore, if a programming language compiler generates LLVM IR, it can be compi
 One aspect of LLVM that is excellent is its documentation. LLVM includes a tutorial \footnote{LLVM Tutorial: \url{https://llvm.org/docs/tutorial/index.html}} that explains how to implement a language with LLVM. Furthermore, there is ample documentation as to how LLVM works, along with many existing high-profile projects that currently use LLVM to some extent. Therefore, following the LLVM tutorial seems like a much better choice for a winter study project. Ultimately, I decided to following the tutorial for the Crafting Interpreters book instead, but the LLVM project would not have been a bad idea either.
 
 \subsection*{Crafting Interpreters Book}
+After invesigating my other options, I finally settled on following the ``Crafting Interpreters'' book by Robert Nystrom, as my project for winter study. This book is a free textbook available online, divided into chapters, where each chapter describes one aspect of implementing the Java interpreter or the C virtual machine.
+
+I felt that this textbook is reputable for learning about programming languages, because the author wrote the best-selling book ``Game Programming Patterns'', and has also created a number of programming languages in his free time. Right now, the author works at Google on the Dart programming language.
+
+Furthermore, from reading over the very beginning of the book, I thought that the book was suitable for a winter study course, because the content feels very approachable and not very dense, with the author writing with the mindset of practical over purity. Therefore, I ended up working through this book for the remainder of winter study.
 
 \section*{Process}
+Once I settled on following the Crafting Interpreters book, my goal for winter study was to complete as much of the book as possible. If I had extra time remaining afterwards, I would try to add additional features to the language, to make it my ``own'', and to experiment with features that may not be present in other languages.
+
+The way the book is laid out, I would work on one or two chapters per day. Working through a chapter involed implementing a feature of the Lox language for that chapter, for which the full code is provided by the book. I made sure to understand each bit of code before writing it out myself. At the end of each chapter, the book provides several exercises, such as improving one of the features in the chapter, or implementing a more advanced features on top of that. I attempted as many of the exercises as I could, making the language I created in the end a more extensive version of Lox than the minimal one presented by the book. In doing so, I gained a deeper understanding of the implementation from the chapter, since I wrote my own original code on top of it.
 
 \subsection*{The Lox Language}
+The Lox language was defined as a loose specification in one of the first chapters of the crafting interpreters book. Lox is a high-level, dynamically typed, minimal scripting language, with a clean C-inspired syntax.
+
+Here is an example Hello World program in Lox:
+
+\begin{lstlisting}[language=Lox]
+fun main() {
+  // Prints "Hello, world!" to the console
+  print "Hello, world!";
+}
+\end{lstlisting}
+
+Since Lox is dynamically typed, its variables can store values of any type, and there is no compile-time type checking. Lox also has automatic memory management with garbage collection.
+
+Lox contains the following data types:
+\begin{itemize}
+  \item Booleans
+  \begin{itemize}
+    \item Contains either the value \texttt{true} or \texttt{false}
+  \end{itemize}
+  \item Numbers
+  \begin{itemize}
+    \item In Lox, all numbers are double-precision floating point numbers.
+    \item As an extension, I separated Float and Int into two datatypes, with Float being a double-precision floating point number and Int being a 64-bit signed integer.
+  \end{itemize}
+  \item Strings
+  \begin{itemize}
+    \item Lox contains Strings to store groups of character.
+  \end{itemize}
+  \item Nil
+  \begin{itemize}
+    \item Nil represents null or nothing in Lox. By default, uninitialized expessions are nil, and returning from a function without a value returns nil. 
+  \end{itemize}
+\end{itemize}
+
+Lox contains the following expressions, which work similar to the way they do in other languages:
+\begin{itemize}
+  \item Arithmetic expressions (\texttt{+}, \texttt{-}, \texttt{*}, \texttt{/})
+  \item Comparison expressions (\texttt{<}, \texttt{<=}, \texttt{>}, \texttt{>=}, \texttt{==}, \texttt{!=})
+  \item Logical operators (\texttt{!}, \texttt{and}, \texttt{or})
+  \item Grouping (\texttt{()})
+\end{itemize}
+
+Lox contains the following statements, which also work similar to the way they do in other languages:
+\begin{itemize}
+  \item Print (\texttt{print}), which prints out the following expression to the console (similar to \texttt{println} in other langauges)
+  \item Control flow statements (\texttt{if}, \texttt{else}, \texttt{for}, \texttt{while})
+  \begin{itemize}
+    \item Specifically, Lox supports the C-style 3-part \texttt{for} loop, with an initializer, a terminator, and an increment.
+  \end{itemize}
+\end{itemize}
+
+Lox contains variables with lexical scoping and blocks.
+
+Lox contains functions that work similarly to functions in other languages. Specifically, Lox funcions are first-class, int that they themselves can are objects in Lox.
+
+Lox also contains object orientation, similar to object orientation in Java, with classes, methods, constructors, inheritance.
+
+Finally, the language definition for Lox has support for a standard library, but not much work in the book is put into implementing one.
+
+This is essentially what the book defines as the Lox language. To make Lox a practical language for use, other features should probably be added, including a much more extensive standard library (with features including math, input/output, graphics, networking, etc.), ways to import code from other Lox files and libraries, a foreign function interface, documentation describing how things work, development tools such as a debugger or an IDE, etc. These will not be the focus of this winter study, but I may try to add some of these if I further pursue making this language or another language, or if I have extra time at some point.
 
 \subsection*{The Tree-Walk Interpreter}
+The tree-walk interpreter is the first of two interpreters that I implemented. This implementation was written in Java, since it is a popular language with high-level support such as objects and garbage collection.
+
+This interpreter is divided into several phases. The first phase of the interpreter is the scanner, also commonly known as the lexer. The way this phase works is that it scans the input (either a File or a REPL input) as a String and converts it to a list of tokens. A token is a logical unit of the program's text. For example, a token can be an operator (e.g. \texttt{+}), a grouping symbol (e.g. \texttt{\{}), a keyword (e.g. \texttt{if}), an identifier (e.g. \texttt{i}), or a literal (e.g. \texttt{16}). The token has fields holding the type of the token, the location of the token in the program (for error message purposes), and the value of the token if it's a literal.
+
+After the scanner is done scanning its tokens, the tokens are used as the input to the parser. The parser used in this implementation of Lox is a recursive descent parser. This parser is considered a top-down parser, because it starts from the outermost grammar rule and works its way inwards. The parser translates the grammar's rules into imperative code, such that each rule becomes a function. The parser generates the Abstract Syntax Tree (AST), a tree-form of the program that can be easily ran by the interpreter.
+
+After the parser converts the input to the AST, it is ran thorough the resolver, which records variable invocations to ensure scoping is correct. The resolver also contains some additional features not specified by the book, including giving an error if a \texttt{return} or \texttt{break} statement are used inappropriately, if a variable is declared and never used, or a variable is used while it is guaranteed to be uninitialized.
+
+After resolution, the program is ready to be execcuted by the interpreter. The interpreter implements the visitor pattern to provide a piece of functionality for each type of node that it visits on the AST. For example, upon visiting an If expression, the interpreter evaluates the condition (which recursively interprets the children node on the tree). If the evaluated expression is truthy, the statement in the true branch is executed. Otherwise, if an else branch exists, that statement is executed. Because this type of execution is analagous to walking through the AST, this type of interpreter is known as a tree-walk interpreter.
+
+The remainder of the work on this interpreter is implementing the many features that exist in the Lox language. This includes implementing state (variables), control flow, functions, lexical scoping, and object oriented features.
+
+In the end, I created a working Lox interpreter in Java with all of the features specified in the informal specification and more. However, one disadvantage of this interpreter is that performance-wise, it is quite slow, due to the fact that it is a tree-walk interpreter (which means that there are many pointer indirections), and that it is built on Java, which means that we have less control over potential optimizations made. This is why, the second half of the book involves implementing a bytecode virtual machine for Lox in C.
 
 \subsection*{The Bytecode Virtual Machine}
+The bytecode virtual machine is the second of two interpreter that I implemented. This implementation was written in C, to give more control over the memory management (as it include writing a custom garbage collector for Lox), and to optimize for the performance compared to the tree-walk interpreter. Even though it's a virtual machine that reads compiled bytecode, technically speaking it's still an interpreter, because the virtual machine interprets the instructions rather for effects, than converting the instructions to actual machine code.
 
-\section*{Future Work}
+The way this virtual machine works is that it reads bytecode, executes an instruction based on that, and repeats the process. Bytecode is much more memory efficient than walking over an AST. Recently, many languages have moved to using a Just-In-Time compiler to compile into machine code as the program itself is running, which is usually even faster than a bytecode interpreter, but the cost of that is that it is much more difficult to write a custom JIT compiler than to write a bytecode VM, so it would likely be out of scope for this project.
+
+The virtual machine implemented is a stack-based VM, which means that values are stored on a stack, and instructions manipulate the top of the stack. For example, the expression \texttt{3 + 4} would push 3 and 4 onto the stack and then pop the two values and add them together, pushing the final result of 7 onto the stack again.
+
+Similar to the tree-walk interpreter, this interpreter contains a scanner to convert text into tokens. However, the step after the scanner is now a compiler that compiles tokens into bytecode. The compiler used in the book uses a Pratt parser, an algorithm for top-down operator precedence, to turn its expressions into stack-VM bytecode. This compiler is a single-pass compiler, which works well for a simple language like Lox, and is very efficient performance-wise.
+
+After the bytecode is produced, it is executed by the virtual machine interpreter. The interpreter reads in a bytecode instruciton, manipulates the stack based on the instruction, and repeats itself. This simple mechanism is powerful enough to emulate all of the features in the Lox programming language.
+
+This was the point that I got to with the bytecode virtual machine this semester. The remainder of the book has chapters about adding variable support, functions and function calls, closures and scoping, garbage collection, classes and inheritance, and optimization. I plan on continuing and finishing the implementation of the bytecode virtual machine for Lox, and potentially expanding it into a fully featured custom programming language.
 
 \section*{Conclusion}
- 
+Over this winter study, I learned about and wrote two interpreters for the Lox programming language, one of which was a tree-walk interpreter written in Java and the other of wich was a bytecode virtual machine written in C. Through this process, I learned a great deal about how programming languages are made, including the process, the components, the design decisions, the terminology, and much more. I really enjoyed working on this project during winter study, and I felt that it was definitely worth my time pursuing this project.
+
 \end{document}
