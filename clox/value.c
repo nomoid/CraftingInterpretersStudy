@@ -6,6 +6,7 @@
 #include "object.h"
 #include "value.h"
 #include "memory.h"
+#include "math.h"
 
 // Initializes an empty value array with capacity 0
 void initValueArray(ValueArray* array) {
@@ -108,5 +109,74 @@ void printValueType(Value value) {
 #ifdef CLOX_INTEGER_TYPE
         case VAL_INT:   printf("%-8s", "INT"); break;
 #endif
+    }
+}
+
+uint32_t hashString(const char* key, int length) {
+    uint32_t hash = 2166136261u;
+
+    for (int i = 0; i < length; i++) {
+        uint32_t c = (uint32_t) key[i];
+        hash = hash ^ c;
+        hash *= 16777619;
+    }
+
+    return hash;
+}
+
+bool initHash = false;
+uint32_t hashNil = 0;
+uint32_t hashFalse = 0;
+uint32_t hashTrue = 0;
+
+uint32_t hashInt(vint_t number) {
+    return hashString((const char*) &number, VINT_SIZE);
+}
+
+uint32_t hashValue(Value value) {
+    if (!initHash) {
+        initHash = true;
+        hashNil = hashInt(hashInt(0) + 1);
+        hashFalse = hashInt(hashInt(1) + 1);
+        hashTrue = hashInt(hashInt(2) + 1);
+    }
+    switch (value.type) {
+        case VAL_BOOL: {
+            bool b = AS_BOOL(value);
+            if (b) {
+                return hashFalse;
+            }
+            else {
+                return hashTrue;
+            }
+        }
+        case VAL_NIL:
+            return hashNil;
+        case VAL_FLOAT: {
+            double d = AS_FLOAT(value);
+            // Cast raw bits
+            vint_t i = *((vint_t *)&d);
+            return hashInt(i ^ (hashNil + 1));
+        }
+        case VAL_OBJ:   {
+            if (IS_STRING(value)) {
+                ObjString* string = AS_STRING(value);
+                return string->hash;
+            }
+            else {
+                // TODO add support for other object types
+                Obj* obj = AS_OBJ(value);
+                // Cast address into number as hash
+                return hashInt((vint_t)obj);
+            }
+        }
+#ifdef CLOX_INTEGER_TYPE
+        case VAL_INT: {
+            vint_t i = AS_INT(value);
+            return hashInt(i);
+        }
+#endif
+        default:
+            return false; // Unreachable.
     }
 }

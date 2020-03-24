@@ -7,6 +7,9 @@
 typedef struct sObj Obj;
 typedef struct sObjString ObjString;
 
+typedef int64_t vint_t;
+#define VINT_SIZE 4
+
 typedef enum {
     VAL_NIL,
     VAL_BOOL,
@@ -24,7 +27,7 @@ typedef struct {
         double vfloat;
         Obj* vobj;
 #ifdef CLOX_INTEGER_TYPE
-        int64_t vint;
+        vint_t vint;
 #endif
     } as;
 } Value;
@@ -67,6 +70,10 @@ void freeValueArray(ValueArray* array);
 int writeValueArray(ValueArray* array, Value value);
 void printValue(Value value);
 void printValueType(Value value);
+
+uint32_t hashInt(vint_t number);
+uint32_t hashString(const char* key, int length);
+uint32_t hashValue(Value value);
 
 #ifdef CLOX_INTEGER_TYPE
     double numberToFloat(Value in);

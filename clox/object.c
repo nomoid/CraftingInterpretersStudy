@@ -25,21 +25,9 @@ static ObjString* allocateString(FreeList* freeList, Table* strings, char* chars
     string->chars = chars;
     string->hash = hash;
 
-    tableSet(strings, string, NIL_VAL);
+    tableSet(strings, OBJ_VAL(string), NIL_VAL);
 
     return string;
-}
-
-static uint32_t hashString(const char* key, int length) {
-    uint32_t hash = 2166136261u;
-
-    for (int i = 0; i < length; i++) {
-        uint32_t c = (uint32_t) key[i];
-        hash = hash ^ c;
-        hash *= 16777619;
-    }
-
-    return hash;
 }
 
 ObjString* takeString(FreeList* freeList, Table* strings, char* chars, int length) {
