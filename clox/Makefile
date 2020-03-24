@@ -1,9 +1,15 @@
-CFLAGS=-ggdb -Wall -Wconversion -Wextra -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow -Wswitch
+CFLAGS=-std=c99 -ggdb -Wall -Wconversion -Wextra -Wundef -Wcast-align -Wwrite-strings -Wlogical-op -Wmissing-declarations -Wredundant-decls -Wshadow -Wswitch
 EMCCFLAGS=-Wall -s EXPORTED_FUNCTIONS='["_runFile"]' -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["ccall", "cwrap"]'
 
-all: clox
+ifeq ($(OS),Windows_NT)
+    EXT := .exe
+else
+    EXT := 
+endif
 
-clox: *.c *.h
+all: clox$(EXT)
+
+clox$(EXT): *.c *.h
 	gcc -o clox $(CFLAGS) *.c
 
 web: web/clox.js

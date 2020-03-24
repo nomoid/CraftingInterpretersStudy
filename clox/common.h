@@ -14,4 +14,20 @@
         }\
     } while (false)
 
+#ifdef _WIN32
+#define PLATFORM_WINDOWS
+#endif
+
+#if defined(unix) || defined(__unix__) || defined(__unix) || \
+    (defined(__APPLE__) && defined(__MACH__))
+# define PLATFORM_UNIX
+#endif
+
+// Attempt at platform-independent print format modifiers
+#ifdef PLATFORM_WINDOWS
+#define FORMAT_SIZE_T "Iu"
+#else
+#define FORMAT_SIZE_T "zu"
+#endif
+
 #endif

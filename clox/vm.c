@@ -36,7 +36,7 @@ static void runtimeError(VM* vm, const char* format, ...) {
 
     size_t instruction = (size_t)(vm->ip - vm->chunk->code);
     size_t line = getLine(vm->chunk, instruction);
-    fprintf(stderr, "[line %ld] in script\n", line);
+    fprintf(stderr, "[line %" FORMAT_SIZE_T "] in script\n", line);
 
     resetStack(vm);
 }

@@ -32,7 +32,7 @@ static size_t constantInstruction(const char* name, Chunk* chunk, size_t offset,
         constant = chunk->code[offset + 1];
         newOffset = offset + 2;
     }
-    printf("%-16s %4ld ", name, constant);
+    printf("%-16s %4" FORMAT_SIZE_T " ", name, constant);
     Value value = chunk->constants.values[constant];
 #ifdef DEBUG_PRINT_VALUE_TYPE
     printValueType(value);
@@ -44,13 +44,13 @@ static size_t constantInstruction(const char* name, Chunk* chunk, size_t offset,
 }
 
 size_t disassembleInstruction(Chunk* chunk, size_t offset) {
-    printf("%04ld ", offset);
+    printf("%04" FORMAT_SIZE_T " ", offset);
     size_t thisLine = getLine(chunk, offset);
     if (offset > 0 && thisLine == getLine(chunk, offset - 1)) {
         printf("   | ");
     }
     else {
-        printf("%4ld ", thisLine);
+        printf("%4" FORMAT_SIZE_T " ", thisLine);
     }
 
     uint8_t instruction = chunk->code[offset];

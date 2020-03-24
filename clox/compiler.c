@@ -18,7 +18,7 @@ static void errorAt(Parser* parser, Token* token, const char* message) {
         return;
     }
     parser->panicMode = true;
-    fprintf(stderr, "[line %ld] Error", token->line);
+    fprintf(stderr, "[line %" FORMAT_SIZE_T "] Error", token->line);
 
     if (token->type == TOKEN_EOF) {
         fprintf(stderr, " at end");
