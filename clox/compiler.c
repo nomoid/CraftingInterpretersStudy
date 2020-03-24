@@ -272,6 +272,7 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     parser.panicMode = false;
     parser.previous.type = TOKEN_ERROR;
     parser.current.type = TOKEN_ERROR;
+    parser.freeList.head = NULL;
 
     advance(&parser);
     expression(&parser);

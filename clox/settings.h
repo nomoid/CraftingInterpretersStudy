@@ -7,7 +7,7 @@
 #define CLOX_INTEGER_TYPE
 
 // #define DEBUG_TRACE_EXECUTION
-#define DEBUG_PRINT_CODE
-#define DEBUG_PRINT_VALUE_TYPE
+// #define DEBUG_PRINT_CODE
+// #define DEBUG_PRINT_VALUE_TYPE
 
 #endif
