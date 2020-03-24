@@ -86,12 +86,7 @@ bool valuesEqual(Value a, Value b) {
         case VAL_BOOL:  return AS_BOOL(a) == AS_BOOL(b);
         case VAL_NIL:   return true;
         case VAL_FLOAT: return AS_FLOAT(a) == AS_FLOAT(b);
-        case VAL_OBJ: {
-            ObjString* aString = AS_STRING(a);
-            ObjString* bString = AS_STRING(b);
-            return aString->length == bString->length &&
-                memcmp(aString->chars, bString->chars, (size_t) aString->length) == 0;
-        }
+        case VAL_OBJ:   return AS_OBJ(a) == AS_OBJ(b);
 #ifdef CLOX_INTEGER_TYPE
         case VAL_INT:   return AS_INT(a) == AS_INT(b);
 #endif

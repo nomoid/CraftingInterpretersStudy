@@ -47,6 +47,7 @@ void initVM(VM* vm) {
 #endif
     resetStack(vm);
     vm->freeList.head = NULL;
+    initTable(&vm->strings);
 }
 
 void freeVM(VM* vm) {
@@ -119,7 +120,7 @@ static void concatenate(VM* vm) {
     memcpy(chars + a->length, b->chars, (size_t) b->length);
     chars[length] = '\0';
 
-    ObjString* result = takeString(&vm->freeList, chars, length);
+    ObjString* result = takeString(&vm->freeList, &vm->strings, chars, length);
     push(vm, OBJ_VAL(result));
 }
 

@@ -4,6 +4,7 @@
 #include "object.h"
 #include "vm.h"
 #include "scanner.h"
+#include "table.h"
 
 typedef struct {
     Token current;
@@ -13,6 +14,7 @@ typedef struct {
     Scanner* scanner;
     Chunk* currentChunk;
     FreeList freeList;
+    Table strings;
 } Parser;
 
 typedef void (*ParseFn)(Parser *);

@@ -5,6 +5,7 @@
 #include "chunk.h"
 #include "value.h"
 #include "settings.h"
+#include "table.h"
 
 #define STACK_DEFAULT 256
 
@@ -20,6 +21,7 @@ typedef struct {
     Chunk* chunk;
     uint8_t* ip;
     Value* stackTop;
+    Table strings;
     FreeList freeList;
 #ifdef CLOX_VARIABLE_STACK
     Value* stack;

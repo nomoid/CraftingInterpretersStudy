@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "table.h"
 
 #define OBJ_TYPE(value)  (AS_OBJ(value)->type)
 
@@ -28,10 +29,11 @@ struct sObjString {
     Obj obj;
     int length;
     char* chars;
+    uint32_t hash;
 };
 
-ObjString* takeString(FreeList* freeList, char* chars, int length);
-ObjString* copyString(FreeList* freeList, const char* chars, int length);
+ObjString* takeString(FreeList* freeList,Table* strings, char* chars, int length);
+ObjString* copyString(FreeList* freeList,Table* strings, const char* chars, int length);
 void printObject(Value value);
 void printObjectType(Value value);
 

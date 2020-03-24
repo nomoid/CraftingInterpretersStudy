@@ -11,8 +11,10 @@
 #define FREE(type, pointer) \
     reallocate(pointer, sizeof(type), 0, false)
 
+#define GROW_CAPACITY_RATIO 2
+
 #define GROW_CAPACITY(capacity) \
-    ((capacity < 8) ? 8 : (capacity) * 2);
+    ((capacity < 8) ? 8 : (capacity) * GROW_CAPACITY_RATIO);
 
 #define GROW_ARRAY(previous, type, oldCount, count) \
     (type*)reallocate(previous, (size_t)(sizeof(type) * (oldCount)), \

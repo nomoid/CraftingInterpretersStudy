@@ -8,8 +8,8 @@ typedef struct sObj Obj;
 typedef struct sObjString ObjString;
 
 typedef enum {
-    VAL_BOOL,
     VAL_NIL,
+    VAL_BOOL,
     VAL_FLOAT,
     VAL_OBJ,
 #ifdef CLOX_INTEGER_TYPE

@@ -126,6 +126,7 @@ static void number(Parser* parser) {
 static void string(Parser* parser) {
     emitConstant(parser, OBJ_VAL(copyString(
         &parser->freeList,
+        &parser->strings,
         parser->previous.start + 1,
         parser->previous.length - 2)));
 }
@@ -264,6 +265,7 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     initScanner(&scanner, source);
 
     Parser parser;
+    initTable(&parser.strings);
     parser.scanner = &scanner;
     parser.currentChunk = chunk;
     parser.hadError = false;
@@ -277,6 +279,7 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     endCompiler(&parser);
     
     vm->freeList = parser.freeList;
+    vm->strings = parser.strings;
 
     return !parser.hadError;
 }
