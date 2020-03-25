@@ -1,1 +1,2 @@
-print 3 + 4; // expect: 7
+// Chapter 18
+print !(5 - 4 > 3 * 2 == !nil); // expect: true

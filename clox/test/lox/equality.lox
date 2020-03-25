@@ -1,0 +1,6 @@
+// Chapter 20
+print 3 == 3; // expect: true
+print 3 == 4; // expect: false
+print "a" + "b" == "ab"; // expect: true
+print "hello" == "hello"; // expect: true
+print "hello" == "Hello"; // expect: false

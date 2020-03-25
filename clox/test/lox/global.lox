@@ -1,0 +1,14 @@
+// Chapter 21
+var x = 28;
+var y = 9;
+
+print x; // expect: 28
+print x + y; // expect: 37
+x = x - y;
+print x * y; // expect: 171
+
+var hello = "Hello, ";
+var world = "world";
+var exclamation = "?";
+exclamation = "!";
+print hello + world + exclamation; // expect: Hello, world!
