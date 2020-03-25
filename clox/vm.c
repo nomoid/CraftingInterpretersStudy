@@ -47,6 +47,7 @@ void initVM(VM* vm) {
 #endif
     resetStack(vm);
     vm->freeList.head = NULL;
+    initTable(&vm->globals);
     initTable(&vm->strings);
 }
 
@@ -128,7 +129,38 @@ static InterpretResult run(VM* vm) {
 #define READ_BYTE() (*vm->ip++)
 #define READ_CONSTANT() (vm->chunk->constants.values[READ_BYTE()])
 #define READ_CONSTANT_POS(pos) (vm->chunk->constants.values[(pos)])
-    while (1) {
+#define READ_CONSTANT_INTO_F(name, f) \
+    do { \
+        name = f(READ_CONSTANT()); \
+    } while(false)
+#define READ_CONSTANT_LONG_INTO_F(name, f) \
+    do { \
+        uint8_t v1 = READ_BYTE(); \
+        uint8_t v2 = READ_BYTE(); \
+        uint8_t v3 = READ_BYTE(); \
+        name = f(READ_CONSTANT_POS( \
+            COMBINE_3WORD(v1, v2, v3))); \
+    } while(false)
+#define READ_CONSTANT_INTO(name, isLong) \
+    do { \
+        if (isLong) { \
+            READ_CONSTANT_LONG_INTO_F(name,); \
+        } \
+        else { \
+            READ_CONSTANT_INTO_F(name,); \
+        } \
+    } while (false)
+#define READ_STRING() AS_STRING(READ_CONSTANT())
+#define READ_STRING_INTO(name, isLong) \
+    do { \
+        if (isLong) { \
+            READ_CONSTANT_LONG_INTO_F(name, AS_STRING); \
+        } \
+        else { \
+            READ_CONSTANT_INTO_F(name, AS_STRING); \
+        } \
+    } while (false)
+    while(1) {
 #define PUSH(value) (push(vm, (value)))
 #define POP() (pop(vm))
 #define PEEK(value) (peek(vm, (value)))
@@ -186,24 +218,58 @@ static InterpretResult run(VM* vm) {
         disassembleInstruction(vm->chunk, (size_t)(vm->ip - vm->chunk->code));
 #endif
         uint8_t instruction;
+        bool longConstant = true;
         switch (instruction = READ_BYTE()) {
-            case OP_CONSTANT: {
-                Value constant = READ_CONSTANT();
+            case OP_CONSTANT:
+                longConstant = false;
+                // fall through
+            case OP_CONSTANT_LONG: {
+                Value constant;
+                READ_CONSTANT_INTO(constant, longConstant);
                 PUSH(constant);
                 break;
             }
-            case OP_CONSTANT_LONG: {
-                uint8_t v1 = READ_BYTE();
-                uint8_t v2 = READ_BYTE();
-                uint8_t v3 = READ_BYTE();
-                Value constant = READ_CONSTANT_POS(
-                    COMBINE_3WORD(v1, v2, v3));
-                PUSH(constant);
+            case OP_DEFINE_GLOBAL:
+                longConstant = false;
+                // fall through
+            case OP_DEFINE_GLOBAL_LONG: {
+                ObjString* name;
+                READ_STRING_INTO(name, longConstant);
+                tableSet(&vm->globals, OBJ_VAL(name), PEEK(0));
+                POP();
+                break;
+            }
+            case OP_GET_GLOBAL:
+                longConstant = false;
+                // fall through
+            case OP_GET_GLOBAL_LONG: {
+                ObjString* name;
+                READ_STRING_INTO(name, longConstant); 
+                Value value;
+                if (!tableGet(&vm->globals, OBJ_VAL(name), &value)) {
+                    runtimeError(vm, "Undefined variable %s.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                PUSH(value);
+                break;
+            }
+            case OP_SET_GLOBAL:
+                longConstant = false;
+                // fall through
+            case OP_SET_GLOBAL_LONG: {
+                ObjString* name;
+                READ_STRING_INTO(name, longConstant);
+                if (tableSet(&vm->globals, OBJ_VAL(name), PEEK(0))) {
+                    tableDelete(&vm->globals, OBJ_VAL(name));
+                    runtimeError(vm, "Undefined variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_NIL:   PUSH(NIL_VAL); break;
             case OP_TRUE:  PUSH(BOOL_VAL(true)); break;
             case OP_FALSE: PUSH(BOOL_VAL(false)); break;
+            case OP_POP:   POP(); break;
             case OP_EQUAL: {
                 Value b = POP();
                 Value a = POP();
@@ -223,7 +289,7 @@ static InterpretResult run(VM* vm) {
                 }
                 else {
                     runtimeError(vm,
-                        "Operand must be two numbers or two strings.");
+                        "Operands must be two numbers or two strings.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 break;
@@ -238,9 +304,13 @@ static InterpretResult run(VM* vm) {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 PUSH(negate(POP())); break;
-            case OP_RETURN: {
+            case OP_PRINT: {
                 printValue(POP());
                 printf("\n");
+                break;
+            }
+            case OP_RETURN: {
+                // Exit interpreter
                 return INTERPRET_OK;
             }
         }
@@ -248,9 +318,15 @@ static InterpretResult run(VM* vm) {
 #undef READ_BYTE
 #undef READ_CONSTANT
 #undef READ_CONSTANT_POS
+#undef READ_CONSTANT_LONG_INTO_F
+#undef READ_CONSTANT_LONG_INTO
+#undef READ_STRING
+#undef READ_STRING_LONG_INTO
 #undef PUSH
 #undef POP
 #undef BINARY_OP
+#undef DEFINE_GLOBAL
+#undef GET_CONSTANT
 }
 
 InterpretResult interpret(VM* vm, const char* source) {

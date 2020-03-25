@@ -1,1 +1,1 @@
-"a" + "b" == "ab" // expect: true
+print "a" + "b" == "ab"; // expect: true

@@ -56,19 +56,12 @@ int writeChunk(Chunk* chunk, uint8_t byte, size_t line) {
 // Adds a single constant to the Chunk
 // Returns index where Value was added
 // Returns -1 if failed to add
-static int addConstant(Chunk* chunk, Value value) {
-#ifdef CLOX_LONG_CONSTANTS
-// Maximum 2**24-2 constants
-#define MAX_CONSTANT_COUNT 16777214
-#else
-#define MAX_CONSTANT_CONUT 256
-#endif
-    if (chunk->constants.count >= MAX_CONSTANT_COUNT) {
+int addConstant(Chunk* chunk, Value value) {
+    if (chunk->constants.count > CHUNK_MAX_CONSTANTS) {
         return -1;
     }
     ERROR_GUARD(writeValueArray(&chunk->constants, value));
     return (int)chunk->constants.count - 1;
-#undef MAX_CONSTANT_COUNT
 }
 
 // Writes a constant to the Chunk
@@ -77,14 +70,14 @@ int writeConstant(Chunk* chunk, Value value, size_t line) {
     int index = addConstant(chunk, value);
     ERROR_GUARD(index);
 #ifdef CLOX_LONG_CONSTANTS
-    if (index >= 256) {
+    if (index > CHUNK_SHORT_CONSTANTS) {
         ERROR_GUARD(writeChunk(chunk, OP_CONSTANT_LONG, line));
         for (int i = 0; i < 3; i++) {
             ERROR_GUARD(writeChunk(chunk, BYTE_FROM_3WORD(index, i), line));
         }
     }
 #else
-    if (index >= 256) {
+    if (index > CHUNK_SHORT_CONSTANTS) {
         // Out of constants
         return -1;
     }

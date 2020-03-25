@@ -43,6 +43,59 @@ static size_t constantInstruction(const char* name, Chunk* chunk, size_t offset,
     return newOffset;
 }
 
+static const char* opName(uint8_t opcode) {
+    switch (opcode) {
+        case OP_CONSTANT:
+            return "OP_CONSTANT";
+        case OP_CONSTANT_LONG:
+            return "OP_CONSTANT_LONG";
+        case OP_DEFINE_GLOBAL:
+            return "OP_DEFINE_GLOBAL";
+        case OP_DEFINE_GLOBAL_LONG:
+            return "OP_DEFINE_GLOBAL_LONG";
+        case OP_GET_GLOBAL:
+            return "OP_GET_GLOBAL";
+        case OP_GET_GLOBAL_LONG:
+            return "OP_GET_GLOBAL_LONG";
+        case OP_SET_GLOBAL:
+            return "OP_SET_GLOBAL";
+        case OP_SET_GLOBAL_LONG:
+            return "OP_SET_GLOBAL_LONG";
+        case OP_NIL:
+            return "OP_NIL";
+        case OP_TRUE:
+            return "OP_TRUE";
+        case OP_FALSE:
+            return "OP_FALSE";
+        case OP_POP:
+            return "OP_POP";
+        case OP_EQUAL:
+            return "OP_EQUAL";
+        case OP_GREATER:
+            return "OP_GREATER";
+        case OP_LESS:
+            return "OP_LESS";
+        case OP_ADD:
+            return "OP_ADD";
+        case OP_SUBTRACT:
+            return "OP_SUBTRACT";
+        case OP_MULTIPLY:
+            return "OP_MULTIPLY";
+        case OP_DIVIDE:
+            return "OP_DIVIDE";
+        case OP_NOT:
+            return "OP_NOT";
+        case OP_NEGATE:
+            return "OP_NEGATE";
+        case OP_PRINT:
+            return "OP_PRINT";
+        case OP_RETURN:
+            return "OP_RETURN";
+        default:
+            return NULL;
+    }
+}
+
 size_t disassembleInstruction(Chunk* chunk, size_t offset) {
     printf("%04" FORMAT_SIZE_T " ", offset);
     size_t thisLine = getLine(chunk, offset);
@@ -56,37 +109,22 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset) {
     uint8_t instruction = chunk->code[offset];
     switch (instruction) {
         case OP_CONSTANT:
-            return constantInstruction("OP_CONSTANT", chunk, offset, false);
+        case OP_DEFINE_GLOBAL:
+        case OP_GET_GLOBAL:
+        case OP_SET_GLOBAL:
+            return constantInstruction(opName(instruction), chunk, offset, false);
         case OP_CONSTANT_LONG:
-            return constantInstruction("OP_CONSTANT_LONG", chunk, offset, true);
-        case OP_NIL:
-            return simpleInstruction("OP_NIL", offset);
-        case OP_TRUE:
-            return simpleInstruction("OP_TRUE", offset);
-        case OP_FALSE:
-            return simpleInstruction("OP_FALSE", offset);
-        case OP_EQUAL:
-            return simpleInstruction("OP_EQUAL", offset);
-        case OP_GREATER:
-            return simpleInstruction("OP_GREATER", offset);
-        case OP_LESS:
-            return simpleInstruction("OP_LESS", offset);
-        case OP_ADD:
-            return simpleInstruction("OP_ADD", offset);
-        case OP_SUBTRACT:
-            return simpleInstruction("OP_SUBTRACT", offset);
-        case OP_MULTIPLY:
-            return simpleInstruction("OP_MULTIPLY", offset);
-        case OP_DIVIDE:
-            return simpleInstruction("OP_DIVIDE", offset);
-        case OP_NOT:
-            return simpleInstruction("OP_NOT", offset);
-        case OP_NEGATE:
-            return simpleInstruction("OP_NEGATE", offset);
-        case OP_RETURN:
-            return simpleInstruction("OP_RETURN", offset);
-        default:
-            printf("Unknown opcode %d\n", instruction);
-            return offset + 1;
+        case OP_DEFINE_GLOBAL_LONG:
+        case OP_GET_GLOBAL_LONG:
+        case OP_SET_GLOBAL_LONG:
+            return constantInstruction(opName(instruction), chunk, offset, true);
+        default: {
+            const char* name = opName(instruction);
+            if (name == NULL) {
+                printf("Unknown opcode %d\n", instruction);
+                return offset + 1;
+            }
+            return simpleInstruction(name, offset);
+        }   
     }
 }

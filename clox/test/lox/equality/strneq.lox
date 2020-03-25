@@ -1,1 +1,1 @@
-"hello" == "Hello" // expect: false
+print "hello" == "Hello"; // expect: false

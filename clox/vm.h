@@ -21,6 +21,7 @@ typedef struct {
     Chunk* chunk;
     uint8_t* ip;
     Value* stackTop;
+    Table globals;
     Table strings;
     FreeList freeList;
 #ifdef CLOX_VARIABLE_STACK

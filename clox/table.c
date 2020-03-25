@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -10,6 +11,7 @@
 
 void initTable(Table* table) {
     table->count = 0;
+    table->capacityCount = 0;
     table->capacity = 0;
     table->entries = NULL;
 }
@@ -66,6 +68,8 @@ bool tableDelete(Table* table, Value key) {
         return false;
     }
 
+    // Does not affect capacity count due to tombstone
+    table->count--;
     entry->present = false;
     entry->key = NIL_VAL;
     entry->value = BOOL_VAL(true);
@@ -73,9 +77,9 @@ bool tableDelete(Table* table, Value key) {
 }
 
 void tableAddAll(Table* src, Table* dest) {
-    for (size_t i = 0; i < src->count; i++) {
+    for (size_t i = 0; i < src->capacity; i++) {
         Entry* entry = &src->entries[i];
-        if (!entry->present) {
+        if (entry->present) {
             tableSet(dest, entry->key, entry->value);
         }
     }
@@ -120,13 +124,18 @@ static void adjustCapacity(Table* table, size_t capacity) {
     }
 
     table->count = 0;
+    table->capacityCount = 0;
     for (size_t i = 0; i < table->capacity; i++) {
         Entry* entry = &table->entries[i];
+        if (!entry->present) {
+            continue;
+        }
         Entry* dest = findEntry(entries, capacity, entry->key);
         dest->present = true;
         dest->key = entry->key;
         dest->value = entry->value;
         table->count++;
+        table->capacityCount++;
     }
 
     FREE_ARRAY(Entry, table->entries, table->capacity);
@@ -135,7 +144,7 @@ static void adjustCapacity(Table* table, size_t capacity) {
 }
 
 bool tableSet(Table* table, Value key, Value value) {
-    if (table->count + 1 > (size_t)
+    if (table->capacityCount + 1 > (size_t)
             ((double)table->capacity * TABLE_MAX_LOAD)) {
         if (table->capacity > SIZE_MAX / GROW_CAPACITY_RATIO) {
             // Hash table out of memory
@@ -149,8 +158,12 @@ bool tableSet(Table* table, Value key, Value value) {
     Entry* entry = findEntry(table->entries, table->capacity, key);
 
     bool isNewKey = !entry->present;
-    if (isNewKey && IS_NIL(entry->value)) {
+    if (isNewKey) {
         table->count++;
+        // Only increment capacity on non-tombstone new keys
+        if (IS_NIL(entry->value)) {
+            table->capacityCount++;
+        }
     }
 
     entry->present = true;
@@ -158,4 +171,28 @@ bool tableSet(Table* table, Value key, Value value) {
     entry->value = value;
     
     return isNewKey;
+}
+
+void tablePrint(Table* table) {
+    bool found = false;
+    printf("{");
+    for (size_t i = 0; i < table->capacity; i++) {
+        Entry entry = table->entries[i];
+        if (entry.present) {
+            if (!found) {
+                found = true;
+            }
+            else {
+                printf(", ");
+            }
+            printValue(entry.key);
+            printf(": ");
+            printValue(entry.value);
+        }
+    }
+    printf("}\n");
+}
+
+size_t tableSize(Table* table) {
+    return table->count;
 }

@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define UNUSED(x) (void)(x)
+
 #define ERROR_GUARD(expr) \
     do {\
         if ((expr) == -1) {\

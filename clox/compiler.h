@@ -17,7 +17,7 @@ typedef struct {
     Table strings;
 } Parser;
 
-typedef void (*ParseFn)(Parser *);
+typedef void (*ParseFn)(Parser *, bool);
 
 typedef enum {
   PREC_NONE,
