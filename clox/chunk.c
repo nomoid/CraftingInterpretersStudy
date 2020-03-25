@@ -14,6 +14,9 @@ void initChunk(Chunk* chunk) {
     chunk->line_capacity = 0;
     chunk->lines = NULL;
     initValueArray(&chunk->constants);
+#ifdef CLOX_CONST_CACHE
+    initTable(&chunk->constantTable);
+#endif
 }
 
 // Frees a Chunk, resetting its values to initialization
@@ -21,6 +24,9 @@ void freeChunk(Chunk* chunk) {
     FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
     FREE_ARRAY(int, chunk->lines, chunk->capacity);
     freeValueArray(&chunk->constants);
+#ifdef CLOX_CONST_CACHE
+    freeTable(&chunk->constantTable);
+#endif
     initChunk(chunk);
 }
 
@@ -57,11 +63,33 @@ int writeChunk(Chunk* chunk, uint8_t byte, size_t line) {
 // Returns index where Value was added
 // Returns -1 if failed to add
 int addConstant(Chunk* chunk, Value value) {
+#ifdef CLOX_CONST_CACHE
+    Value idValueGet;
+    if (tableGet(&chunk->constantTable, value, &idValueGet)) {
+#ifdef CLOX_INTEGER_TYPE
+        int index = (int)(AS_INT(idValueGet));
+#else
+        int index = (int)(AS_FLOAT(idValueGet));
+#endif
+        return index;
+    }
+#endif
     if (chunk->constants.count > CHUNK_MAX_CONSTANTS) {
         return -1;
     }
     ERROR_GUARD(writeValueArray(&chunk->constants, value));
-    return (int)chunk->constants.count - 1;
+    int constantId = (int)chunk->constants.count - 1;
+#ifdef CLOX_CONST_CACHE
+#ifdef CLOX_INTEGER_TYPE
+    Value idValue = INT_VAL(constantId);
+#else
+    // Not recommended: Potential issues with large floats when using long
+    // constants?
+    Value idValue = FLOAT_VAL((double)constantId);
+#endif
+    tableSet(&chunk->constantTable, value, idValue);
+#endif
+    return constantId;
 }
 
 // Writes a constant to the Chunk

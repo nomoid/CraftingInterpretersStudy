@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "table.h"
 
 typedef enum {
     // Complex instructions (take arguments)
@@ -72,8 +73,11 @@ typedef struct {
     // Index 0 stores the number of symbols on line 1,
     // index 1 stores the number of symbols on line 2,
     // and so on.
-    uint16_t *lines;
+    uint16_t* lines;
     ValueArray constants;
+#ifdef CLOX_CONST_CACHE
+    Table constantTable;
+#endif
 } Chunk;
 
 void initChunk(Chunk* chunk);

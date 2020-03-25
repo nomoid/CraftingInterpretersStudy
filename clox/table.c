@@ -43,6 +43,7 @@ static Entry* findEntry(Entry* entries, size_t capacity, Value key) {
     }
 }
 
+// Return false if not found, true if found
 bool tableGet(Table* table, Value key, Value* value) {
     if (table->count == 0) {
         return false;
@@ -57,6 +58,7 @@ bool tableGet(Table* table, Value key, Value* value) {
     return true;
 }
 
+// Return false if not found, true if found
 bool tableDelete(Table* table, Value key) {
     if (table->count == 0) {
         return false;
@@ -143,6 +145,7 @@ static void adjustCapacity(Table* table, size_t capacity) {
     table->capacity = capacity;
 }
 
+// Return true if not found (i.e. is new key), false if found
 bool tableSet(Table* table, Value key, Value value) {
     if (table->capacityCount + 1 > (size_t)
             ((double)table->capacity * TABLE_MAX_LOAD)) {

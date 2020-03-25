@@ -57,6 +57,8 @@ void freeVM(VM* vm) {
     size_t capacity = STACK_CAPACITY(vm);
     FREE_ARRAY(Value, vm->stack, capacity);
 #endif
+    freeTable(&vm->globals);
+    freeTable(&vm->strings);
 }
 
 
