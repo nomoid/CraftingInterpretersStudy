@@ -30,7 +30,7 @@ typedef struct {
     // 2**24 - 2
     #define MAX_LOCAL_COUNT 16777214
 #else
-
+    #define MAX_LOCAL_COUNT DEFAULT_LOCAL_COUNT
 #endif
 
 typedef struct Compiler {

@@ -99,7 +99,7 @@ static void emitBytes(Compiler* compiler, uint8_t byte1, uint8_t byte2) {
     emitByte(compiler, byte2);
 }
 
-#ifdef CLOX_LONG_CONSTANTS
+#if defined(CLOX_LONG_CONSTANTS) || defined(CLOX_LONG_LOCALS)
 // Remainder is expected to be 3-bytes-long
 static void emitBytesLong(Compiler* compiler, uint8_t byte1, size_t remainder) {
     emitByte(compiler, byte1);
@@ -634,6 +634,8 @@ static void freeCompiler(Compiler* compiler) {
 #ifdef CLOX_LONG_LOCALS
     FREE_ARRAY(Local, compiler->locals, compiler->localCapacity);
     compiler->locals = NULL;
+#else
+    UNUSED(compiler);
 #endif
 }
 
