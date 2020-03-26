@@ -146,7 +146,7 @@ static size_t identifierConstant(Compiler* compiler, Token* name) {
     int result = addConstant(
         compiler->parser.currentChunk,
         OBJ_VAL(copyString(
-            &compiler->freeList, &compiler->strings, name->start, name->length))
+            compiler->freeList, compiler->strings, name->start, name->length))
     );
     if (result < 0) {
         error(compiler, "Too many constants in one chunk.");
@@ -159,7 +159,7 @@ static bool identifiersEqual(Token* a, Token* b) {
         memcmp(a->start, b->start, (size_t) a->length) == 0;
 }
 
-static int resolveLocal(Compiler* compiler, Token* name) {
+static int resolveLocal(Compiler* compiler, Token* name, bool* isConst) {
     for (int i = compiler->localCount - 1; i >= 0; i--) {
         Local* local = &compiler->locals[i];
         if (identifiersEqual(name, &local->name)) {
@@ -167,6 +167,11 @@ static int resolveLocal(Compiler* compiler, Token* name) {
                 error(compiler,
                     "Cannot read local variable in its own initializer");
             }
+#ifdef CLOX_CONST_KEYWORD
+            *isConst = local->constant;
+#else
+            *isConst = false;
+#endif
             return i;
         }
     }
@@ -174,7 +179,7 @@ static int resolveLocal(Compiler* compiler, Token* name) {
     return -1;
 }
 
-static void addLocal(Compiler* compiler, Token name) {
+static void addLocal(Compiler* compiler, Token name, bool constDecl) {
     if (compiler->localCount == UINT8_COUNT) {
         error(compiler, "Too many local variables in function.");
         return;
@@ -182,9 +187,14 @@ static void addLocal(Compiler* compiler, Token name) {
     Local* local = &compiler->locals[compiler->localCount++];
     local->name = name;
     local->depth = -1;
+#ifdef CLOX_CONST_KEYWORD
+    local->constant = constDecl;
+#else
+    UNUSED(constDecl);
+#endif
 }
 
-static void declareVariable(Compiler* compiler) {
+static void declareVariable(Compiler* compiler, bool constDecl) {
     if (compiler->scopeDepth == 0) {
         return;
     }
@@ -200,13 +210,14 @@ static void declareVariable(Compiler* compiler) {
                 "Variable with this name already declared in this scope.");
         }
     }
-    addLocal(compiler, *name);
+    addLocal(compiler, *name, constDecl);
 }
 
-static size_t parseVariable(Compiler* compiler, const char* errorMessage) {
+static size_t parseVariable(Compiler* compiler, bool constDecl,
+        const char* errorMessage) {
     consume(compiler, TOKEN_IDENTIFIER, errorMessage);
 
-    declareVariable(compiler);
+    declareVariable(compiler, constDecl);
     if (compiler->scopeDepth > 0) {
         return 0;
     }
@@ -219,14 +230,21 @@ static void markInitialized(Compiler* compiler) {
         compiler->scopeDepth;
 }
 
-static void defineVariable(Compiler* compiler, size_t global) {
+static void defineVariable(Compiler* compiler, size_t global, bool constDecl) {
     if (compiler->scopeDepth > 0) {
         markInitialized(compiler);
         return;
     }
     #ifdef CLOX_LONG_CONSTANTS
     if (global > CHUNK_SHORT_CONSTANTS) {
-        emitBytesLong(compiler, OP_DEFINE_GLOBAL_LONG, global);
+        uint8_t opcode;
+        if (constDecl) {
+            opcode = OP_DEFINE_GLOBAL_CONST_LONG;
+        }
+        else {
+            opcode = OP_DEFINE_GLOBAL_LONG;
+        }
+        emitBytesLong(compiler, opcode, global);
     }
     #else
     if (global > CHUNK_SHORT_CONSTANTS) {
@@ -234,7 +252,14 @@ static void defineVariable(Compiler* compiler, size_t global) {
     }
     #endif
     else {
-        emitBytes(compiler, OP_DEFINE_GLOBAL, (uint8_t) global);
+        uint8_t opcode;
+        if (constDecl) {
+            opcode = OP_DEFINE_GLOBAL_CONST;
+        }
+        else {
+            opcode = OP_DEFINE_GLOBAL;
+        }
+        emitBytes(compiler, opcode, (uint8_t) global);
     }
 }
 
@@ -263,14 +288,15 @@ static void number(Compiler* compiler, bool canAssign) {
 static void string(Compiler* compiler, bool canAssign) {
     UNUSED(canAssign);
     emitConstant(compiler, OBJ_VAL(copyString(
-        &compiler->freeList,
-        &compiler->strings,
+        compiler->freeList,
+        compiler->strings,
         compiler->parser.previous.start + 1,
         compiler->parser.previous.length - 2)));
 }
 
 static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
-    int arg = resolveLocal(compiler, &name);
+    bool isConst = false;
+    int arg = resolveLocal(compiler, &name, &isConst);
     uint8_t setOp;
     uint8_t getOp;
     bool shortOp = true;
@@ -306,6 +332,11 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
     if (shortOp) {
         if (canAssign && match(compiler, TOKEN_EQUAL)) {
             expression(compiler);
+            if (isConst) {
+                error(compiler,
+                    "Cannot overwrite the value of a local const.");
+                return;
+            }
             emitBytes(compiler, setOp, (uint8_t) arg);
         }
         else {
@@ -423,6 +454,9 @@ ParseRule rules[] = {
   { literal,  NULL,    PREC_NONE },       // TOKEN_TRUE
   { NULL,     NULL,    PREC_NONE },       // TOKEN_VAR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_WHILE
+#ifdef CLOX_CONST_KEYWORD
+  { NULL,     NULL,    PREC_NONE },       // TOKEN_CONST
+#endif
   { NULL,     NULL,    PREC_NONE },       // TOKEN_ERROR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_EOF
 };
@@ -466,8 +500,8 @@ static void block(Compiler* compiler) {
     consume(compiler, TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
-static void varDeclaration(Compiler* compiler) {
-    size_t global = parseVariable(compiler, "Expect variable name.");
+static void varDeclaration(Compiler* compiler, bool constDecl) {
+    size_t global = parseVariable(compiler, constDecl,"Expect variable name.");
 
     if (match(compiler, TOKEN_EQUAL)) {
         expression(compiler);
@@ -477,7 +511,7 @@ static void varDeclaration(Compiler* compiler) {
     }
     consume(compiler, TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
-    defineVariable(compiler, global);
+    defineVariable(compiler, global, constDecl);
 }
 
 static void printStatement(Compiler* compiler) {
@@ -535,8 +569,13 @@ static void statement(Compiler* compiler) {
 
 static void declaration(Compiler* compiler) {
     if (match(compiler, TOKEN_VAR)) {
-        varDeclaration(compiler);
+        varDeclaration(compiler, false);
     }
+#ifdef CLOX_CONST_KEYWORD
+    else if (match(compiler, TOKEN_CONST)) {
+        varDeclaration(compiler, true);
+    }
+#endif
     else {
         statement(compiler);
     }
@@ -566,8 +605,8 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     parser->previous.type = TOKEN_ERROR;
     parser->current.type = TOKEN_ERROR;
 
-    compiler.strings = vm->strings;
-    compiler.freeList = vm->freeList;
+    compiler.strings = &vm->strings;
+    compiler.freeList = &vm->freeList;
 
     advance(&compiler);
 
@@ -576,9 +615,6 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     }
 
     endCompiler(&compiler);
-
-    vm->freeList = compiler.freeList;
-    vm->strings = compiler.strings;
 
     return !compiler.parser.hadError;
 }

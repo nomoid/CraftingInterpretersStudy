@@ -48,6 +48,9 @@ void initVM(VM* vm) {
     resetStack(vm);
     vm->freeList.head = NULL;
     initTable(&vm->globals);
+#ifdef CLOX_CONST_KEYWORD
+    initTable(&vm->constGlobals);
+#endif
     initTable(&vm->strings);
 }
 
@@ -58,6 +61,9 @@ void freeVM(VM* vm) {
     FREE_ARRAY(Value, vm->stack, capacity);
 #endif
     freeTable(&vm->globals);
+#ifdef CLOX_CONST_KEYWORD
+    freeTable(&vm->constGlobals);
+#endif
     freeTable(&vm->strings);
 }
 
@@ -237,7 +243,40 @@ static InterpretResult run(VM* vm) {
             case OP_DEFINE_GLOBAL_LONG: {
                 ObjString* name;
                 READ_STRING_INTO(name, longConstant);
+#ifdef CLOX_CONST_KEYWORD
+                Value placeholder;
+                if (tableGet(&vm->constGlobals, OBJ_VAL(name), &placeholder)) {
+                    runtimeError(vm,
+                        "Cannot declare global variable with the same name as "
+                        "global const '%s'.",
+                        name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+#endif
                 tableSet(&vm->globals, OBJ_VAL(name), PEEK(0));
+                POP();
+                break;
+            }
+            case OP_DEFINE_GLOBAL_CONST:
+                longConstant = false;
+                // fall through
+            case OP_DEFINE_GLOBAL_CONST_LONG: {
+                ObjString* name;
+                READ_STRING_INTO(name, longConstant);
+#ifdef CLOX_CONST_KEYWORD
+                Value placeholder;
+                if (tableGet(&vm->constGlobals, OBJ_VAL(name), &placeholder)) {
+                    runtimeError(vm,
+                        "Cannot declare global const with the same name as "
+                        "global const '%s'.",
+                        name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+#endif
+                tableSet(&vm->globals, OBJ_VAL(name), PEEK(0));
+#ifdef CLOX_CONST_KEYWORD
+                tableSet(&vm->constGlobals, OBJ_VAL(name), NIL_VAL);
+#endif
                 POP();
                 break;
             }
@@ -261,6 +300,15 @@ static InterpretResult run(VM* vm) {
             case OP_SET_GLOBAL_LONG: {
                 ObjString* name;
                 READ_STRING_INTO(name, longConstant);
+#ifdef CLOX_CONST_KEYWORD
+                Value placeholder;
+                if (tableGet(&vm->constGlobals, OBJ_VAL(name), &placeholder)) {
+                    runtimeError(vm,
+                        "Cannot overwrite the value of the global const '%s'.",
+                        name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+#endif
                 if (tableSet(&vm->globals, OBJ_VAL(name), PEEK(0))) {
                     tableDelete(&vm->globals, OBJ_VAL(name));
                     runtimeError(vm, "Undefined variable '%s'.", name->chars);

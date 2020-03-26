@@ -5,6 +5,7 @@
 #include "vm.h"
 #include "scanner.h"
 #include "table.h"
+#include "bitfield.h"
 #include "common.h"
 
 typedef struct {
@@ -17,17 +18,22 @@ typedef struct {
 } Parser;
 
 typedef struct {
-  Token name;
-  int depth;
+    Token name;
+    int depth;
+#ifdef CLOX_CONST_KEYWORD
+    bool constant;
+#endif
 } Local;
 
+#define DEFAULT_LOCAL_COUNT UINT8_COUNT
+
 typedef struct Compiler {
-    Local locals[UINT8_COUNT];
+    Local locals[DEFAULT_LOCAL_COUNT];
     int localCount;
     int scopeDepth;
     Parser parser;
-    FreeList freeList;
-    Table strings;
+    FreeList* freeList;
+    Table* strings;
 } Compiler;
 
 typedef void (*ParseFn)(Compiler *, bool);

@@ -22,6 +22,9 @@ typedef struct {
     uint8_t* ip;
     Value* stackTop;
     Table globals;
+#ifdef CLOX_CONST_KEYWORD
+    Table constGlobals;
+#endif
     Table strings;
     FreeList freeList;
 #ifdef CLOX_VARIABLE_STACK

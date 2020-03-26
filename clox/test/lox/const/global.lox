@@ -1,0 +1,8 @@
+var x = 3;
+x = 4;
+print x; // expect: 4
+
+const x = 3;
+print x; // expect: 3
+
+x = 5; // expect runtime error: Cannot overwrite the value of the global const 'x'.

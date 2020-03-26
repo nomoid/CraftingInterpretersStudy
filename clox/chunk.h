@@ -22,6 +22,13 @@ typedef enum {
     // opcode nameIndex
     OP_DEFINE_GLOBAL,
     OP_DEFINE_GLOBAL_LONG,
+    // Defines a global constant with the given constant name, popping a value
+    // off of the stack to get its value. Note that the constant cannot be
+    // changed.
+    // Only useful when CLOX_CONST_KEYWORD is defined.
+    // opcode nameIndex
+    OP_DEFINE_GLOBAL_CONST,
+    OP_DEFINE_GLOBAL_CONST_LONG,
     // Gets the value of a global variable and pushes it onto the stack
     // opcode nameIndex
     OP_GET_GLOBAL,

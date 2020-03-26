@@ -159,7 +159,18 @@ static TokenType checkKeyword(Scanner* scanner, size_t start, size_t length,
 static TokenType identifierType(Scanner* scanner) {
     switch (scanner->start[0]) {
         case 'a': return checkKeyword(scanner, 1, 2, "nd", TOKEN_AND);
-        case 'c': return checkKeyword(scanner, 1, 4, "lass", TOKEN_CLASS);
+        case 'c':
+        if (scanner->current - scanner->start > 1) {                  
+            switch (scanner->start[1]) {
+                case 'l':
+                    return checkKeyword(scanner, 2, 3, "ass", TOKEN_CLASS);
+#ifdef CLOX_CONST_KEYWORD
+                case 'o':
+                    return checkKeyword(scanner, 2, 3, "nst", TOKEN_CONST);
+#endif
+            }
+        }
+        break;
         case 'e': return checkKeyword(scanner, 1, 3, "lse", TOKEN_ELSE);
         case 'i': return checkKeyword(scanner, 1, 1, "f", TOKEN_IF);
         case 'f':                                                     
