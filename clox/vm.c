@@ -203,7 +203,7 @@ static InterpretResult run(VM* vm) {
 #else
     #define BINARY_OP(fn, op) \
     do { \
-        if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+        if (!IS_NUMBER(PEEK(0)) || !IS_NUMBER(PEEK(1))) { \
             runtimeError(vm, "Operands must be numbers."); \
             return INTERPRET_RUNTIME_ERROR; \
         } \

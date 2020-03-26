@@ -98,6 +98,7 @@ static void emitBytes(Compiler* compiler, uint8_t byte1, uint8_t byte2) {
     emitByte(compiler, byte2);
 }
 
+#ifdef CLOX_LONG_CONSTANTS
 // Remainder is expected to be 3-bytes-long
 static void emitBytesLong(Compiler* compiler, uint8_t byte1, size_t remainder) {
     emitByte(compiler, byte1);
@@ -105,6 +106,7 @@ static void emitBytesLong(Compiler* compiler, uint8_t byte1, size_t remainder) {
         emitByte(compiler, BYTE_FROM_3WORD(remainder, i));
     }
 }
+#endif
 
 static void emitReturn(Compiler* compiler) {
     emitByte(compiler, OP_RETURN);
@@ -318,7 +320,7 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
             }
         }
 #else
-        if (global > CHUNK_SHORT_CONSTANTS) {
+        if (globalArg > CHUNK_SHORT_CONSTANTS) {
             error(compiler, "Too many constants.");
             return;
         }
