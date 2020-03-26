@@ -32,4 +32,6 @@
 #define FORMAT_SIZE_T "zu"
 #endif
 
+#define UINT8_COUNT (UINT8_MAX + 1)
+
 #endif

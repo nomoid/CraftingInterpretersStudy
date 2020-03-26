@@ -5,6 +5,7 @@
 #include "vm.h"
 #include "scanner.h"
 #include "table.h"
+#include "common.h"
 
 typedef struct {
     Token current;
@@ -13,24 +14,36 @@ typedef struct {
     bool panicMode;
     Scanner* scanner;
     Chunk* currentChunk;
-    FreeList freeList;
-    Table strings;
 } Parser;
 
-typedef void (*ParseFn)(Parser *, bool);
+typedef struct {
+  Token name;
+  int depth;
+} Local;
+
+typedef struct Compiler {
+    Local locals[UINT8_COUNT];
+    int localCount;
+    int scopeDepth;
+    Parser parser;
+    FreeList freeList;
+    Table strings;
+} Compiler;
+
+typedef void (*ParseFn)(Compiler *, bool);
 
 typedef enum {
-  PREC_NONE,
-  PREC_ASSIGNMENT,  // =
-  PREC_OR,          // or
-  PREC_AND,         // and
-  PREC_EQUALITY,    // == !=
-  PREC_COMPARISON,  // < > <= >=
-  PREC_TERM,        // + -
-  PREC_FACTOR,      // * /
-  PREC_UNARY,       // ! -
-  PREC_CALL,        // . ()
-  PREC_PRIMARY
+    PREC_NONE,
+    PREC_ASSIGNMENT,  // =
+    PREC_OR,          // or
+    PREC_AND,         // and
+    PREC_EQUALITY,    // == !=
+    PREC_COMPARISON,  // < > <= >=
+    PREC_TERM,        // + -
+    PREC_FACTOR,      // * /
+    PREC_UNARY,       // ! -
+    PREC_CALL,        // . ()
+    PREC_PRIMARY
 } Precedence;
 
 typedef struct {

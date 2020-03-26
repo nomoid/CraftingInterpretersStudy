@@ -12,7 +12,7 @@ typedef enum {
     // opcode index
     OP_CONSTANT,
     // Pushes the nth constant onto the stack. Used when there are more than
-    // 255 constants. Similar long variaents exist for other constant-related
+    // 255 constants. Similar long varients exist for other constant-related
     // instructions.
     // little endian
     // opcode index1 index2 index3
@@ -26,11 +26,19 @@ typedef enum {
     // opcode nameIndex
     OP_GET_GLOBAL,
     OP_GET_GLOBAL_LONG,
-    // Sets a global variable to the top value off of the stack, without
-    // popping it off the stack
+    // Sets a global variable to the top value of the stack, without popping
+    // it off the stack
     // opcode nameIndex
     OP_SET_GLOBAL,
     OP_SET_GLOBAL_LONG,
+
+    // Gets the value of a local variable and pushes it onto the stack
+    // opcode localIndex
+    OP_GET_LOCAL,
+    // Sets the value of a local variable to the top value of the stack,
+    // without popping it off the stack
+    // opcode localIndex
+    OP_SET_LOCAL,
 
     // Simple instructions (take no arguments)
 

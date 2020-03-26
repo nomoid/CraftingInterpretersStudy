@@ -268,6 +268,16 @@ static InterpretResult run(VM* vm) {
                 }
                 break;
             }
+            case OP_GET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                PUSH(vm->stack[slot]);
+                break;
+            }
+            case OP_SET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                vm->stack[slot] = PEEK(0);
+                break;
+            }
             case OP_NIL:   PUSH(NIL_VAL); break;
             case OP_TRUE:  PUSH(BOOL_VAL(true)); break;
             case OP_FALSE: PUSH(BOOL_VAL(false)); break;
