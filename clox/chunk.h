@@ -42,10 +42,12 @@ typedef enum {
     // Gets the value of a local variable and pushes it onto the stack
     // opcode localIndex
     OP_GET_LOCAL,
+    OP_GET_LOCAL_LONG,
     // Sets the value of a local variable to the top value of the stack,
     // without popping it off the stack
     // opcode localIndex
     OP_SET_LOCAL,
+    OP_SET_LOCAL_LONG,
 
     // Simple instructions (take no arguments)
 

@@ -119,6 +119,10 @@ ObjString* tableFindString(Table* table, const char* chars, int length,
 
 static void adjustCapacity(Table* table, size_t capacity) {
     Entry* entries = ALLOCATE(Entry, capacity, false);
+    if (entries == NULL) {
+        // TODO out of memory
+        return;
+    }
     for (size_t i = 0; i < capacity; i++) {
         entries[i].present = false;
         entries[i].key = NIL_VAL;

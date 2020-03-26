@@ -50,6 +50,10 @@ ObjString* copyString(FreeList* freeList, Table* strings, const char* chars, int
     }
 
     char* heapChars = ALLOCATE(char, length + 1, false);
+    if (heapChars == NULL) {
+        // TODO out of memory
+        return NULL;
+    }
     memcpy(heapChars, chars, (size_t)length);
     heapChars[length] = '\0';
 

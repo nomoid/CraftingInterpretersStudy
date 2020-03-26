@@ -6,6 +6,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "endian.h"
+#include "memory.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
@@ -161,8 +162,8 @@ static bool identifiersEqual(Token* a, Token* b) {
         memcmp(a->start, b->start, (size_t) a->length) == 0;
 }
 
-static int resolveLocal(Compiler* compiler, Token* name, bool* isConst) {
-    for (int i = compiler->localCount - 1; i >= 0; i--) {
+static size_t resolveLocal(Compiler* compiler, Token* name, bool* isConst) {
+    for (int i = (int)(compiler->localCount - 1); i >= 0; i--) {
         Local* local = &compiler->locals[i];
         if (identifiersEqual(name, &local->name)) {
             if (local->depth == -1) {
@@ -174,18 +175,29 @@ static int resolveLocal(Compiler* compiler, Token* name, bool* isConst) {
 #else
             *isConst = false;
 #endif
-            return i;
+            return (size_t) i;
         }
     }
 
-    return -1;
+    return (size_t) -1;
 }
 
 static void addLocal(Compiler* compiler, Token name, bool constDecl) {
-    if (compiler->localCount == UINT8_COUNT) {
+    if (compiler->localCount == MAX_LOCAL_COUNT) {
         error(compiler, "Too many local variables in function.");
         return;
     }
+#ifdef CLOX_LONG_LOCALS
+    if (compiler->localCount == compiler->localCapacity) {
+        size_t newCapacity = GROW_CAPACITY(compiler->localCapacity);
+        compiler->locals = GROW_ARRAY(
+            compiler->locals,
+            Local,
+            compiler->localCapacity,
+            newCapacity);
+        compiler->localCapacity = newCapacity;
+    }
+#endif
     Local* local = &compiler->locals[compiler->localCount++];
     local->name = name;
     local->depth = -1;
@@ -202,7 +214,7 @@ static void declareVariable(Compiler* compiler, bool constDecl) {
     }
 
     Token* name = &compiler->parser.previous;
-    for (int i = compiler->localCount - 1; i >= 0; i--) {
+    for (int i = (int)(compiler->localCount - 1); i >= 0; i--) {
         Local* local = &compiler->locals[i];
         if (local->depth != -1 && local->depth < compiler->scopeDepth) {
             break;
@@ -298,35 +310,43 @@ static void string(Compiler* compiler, bool canAssign) {
 
 static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
     bool isConst = false;
-    int arg = resolveLocal(compiler, &name, &isConst);
+    size_t arg = resolveLocal(compiler, &name, &isConst);
     uint8_t setOp;
     uint8_t getOp;
     bool shortOp = true;
-    if (arg != -1) {
-        setOp = OP_SET_LOCAL;
-        getOp = OP_GET_LOCAL;
-    }
-    else {
-        size_t globalArg = identifierConstant(compiler, &name);
-#ifdef CLOX_LONG_CONSTANTS
-        if (globalArg > CHUNK_SHORT_CONSTANTS) {
+    if (arg != (size_t) -1) {
+#ifdef CLOX_LONG_LOCALS
+        if (arg >= DEFAULT_LOCAL_COUNT) {
             shortOp = false;
-            if (canAssign && match(compiler, TOKEN_EQUAL)) {
-                expression(compiler);
-                emitBytesLong(compiler, OP_SET_GLOBAL_LONG, globalArg);
-            }
-            else {
-                emitBytesLong(compiler, OP_GET_GLOBAL_LONG, globalArg);
-            }
+            setOp = OP_SET_LOCAL_LONG;
+            getOp = OP_GET_LOCAL_LONG;
         }
 #else
-        if (globalArg > CHUNK_SHORT_CONSTANTS) {
+        if (arg > DEFAULT_LOCAL_COUNT) {
+            error(compiler, "Too many local variables.");
+            return;
+        }
+#endif
+        else {    
+            setOp = OP_SET_LOCAL;
+            getOp = OP_GET_LOCAL;
+        }
+    }
+    else {
+        arg = identifierConstant(compiler, &name);
+#ifdef CLOX_LONG_CONSTANTS
+        if (arg > CHUNK_SHORT_CONSTANTS) {
+            shortOp = false;
+            setOp = OP_SET_GLOBAL_LONG;
+            getOp = OP_GET_GLOBAL_LONG;
+        }
+#else
+        if (arg > CHUNK_SHORT_CONSTANTS) {
             error(compiler, "Too many constants.");
             return;
         }
 #endif
         else {
-            arg = (int) globalArg;
             setOp = OP_SET_GLOBAL;
             getOp = OP_GET_GLOBAL;
         }
@@ -343,6 +363,20 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
         }
         else {
             emitBytes(compiler, getOp, (uint8_t) arg);
+        }
+    }
+    else {
+        if (canAssign && match(compiler, TOKEN_EQUAL)) {
+            expression(compiler);
+            if (isConst) {
+                error(compiler,
+                    "Cannot overwrite the value of a local const.");
+                return;
+            }
+            emitBytesLong(compiler, setOp, arg);
+        }
+        else {
+            emitBytesLong(compiler, getOp, arg);
         }
     }
 }
@@ -590,6 +624,17 @@ static void declaration(Compiler* compiler) {
 static void initCompiler(Compiler* compiler) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+#ifdef CLOX_LONG_LOCALS
+    compiler->localCapacity = DEFAULT_LOCAL_COUNT;
+    compiler->locals = ALLOCATE(Local, compiler->localCapacity, false);
+#endif
+}
+
+static void freeCompiler(Compiler* compiler) {
+#ifdef CLOX_LONG_LOCALS
+    FREE_ARRAY(Local, compiler->locals, compiler->localCapacity);
+    compiler->locals = NULL;
+#endif
 }
 
 bool compile(VM* vm, const char* source, Chunk* chunk) {
@@ -617,6 +662,7 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     }
 
     endCompiler(&compiler);
+    freeCompiler(&compiler);
 
     return !compiler.parser.hadError;
 }

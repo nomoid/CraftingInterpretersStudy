@@ -26,14 +26,27 @@ typedef struct {
 } Local;
 
 #define DEFAULT_LOCAL_COUNT UINT8_COUNT
+#ifdef CLOX_LONG_LOCALS
+    // 2**24 - 2
+    #define MAX_LOCAL_COUNT 16777214
+#else
+
+#endif
 
 typedef struct Compiler {
+#ifdef CLOX_LONG_LOCALS
+    Local* locals;
+#else
     Local locals[DEFAULT_LOCAL_COUNT];
-    int localCount;
+#endif
+    size_t localCount;
     int scopeDepth;
     Parser parser;
     FreeList* freeList;
     Table* strings;
+#ifdef CLOX_LONG_LOCALS
+    size_t localCapacity;
+#endif
 } Compiler;
 
 typedef void (*ParseFn)(Compiler *, bool);

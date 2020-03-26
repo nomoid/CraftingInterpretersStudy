@@ -137,35 +137,45 @@ static InterpretResult run(VM* vm) {
 #define READ_BYTE() (*vm->ip++)
 #define READ_CONSTANT() (vm->chunk->constants.values[READ_BYTE()])
 #define READ_CONSTANT_POS(pos) (vm->chunk->constants.values[(pos)])
-#define READ_CONSTANT_INTO_F(name, f) \
+#define READ_BYTE_INTO_F(name, f) \
     do { \
-        name = f(READ_CONSTANT()); \
+        name = f(READ_BYTE()); \
     } while(false)
-#define READ_CONSTANT_LONG_INTO_F(name, f) \
+#define READ_BYTE_LONG_INTO_F(name, f) \
     do { \
         uint8_t v1 = READ_BYTE(); \
         uint8_t v2 = READ_BYTE(); \
         uint8_t v3 = READ_BYTE(); \
-        name = f(READ_CONSTANT_POS( \
-            COMBINE_3WORD(v1, v2, v3))); \
+        name = f( \
+            COMBINE_3WORD(v1, v2, v3)); \
     } while(false)
+#define READ_BYTE_INTO(name, isLong) \
+    do { \
+        if (isLong) { \
+            READ_BYTE_LONG_INTO_F(name,); \
+        } \
+        else { \
+            READ_BYTE_INTO_F(name,); \
+        } \
+    } while (false)
 #define READ_CONSTANT_INTO(name, isLong) \
     do { \
         if (isLong) { \
-            READ_CONSTANT_LONG_INTO_F(name,); \
+            READ_BYTE_LONG_INTO_F(name, READ_CONSTANT_POS); \
         } \
         else { \
-            READ_CONSTANT_INTO_F(name,); \
+            READ_BYTE_INTO_F(name, READ_CONSTANT_POS); \
         } \
     } while (false)
 #define READ_STRING() AS_STRING(READ_CONSTANT())
+#define AS_STRING_READ_POS(pos) AS_STRING(READ_CONSTANT_POS(pos))
 #define READ_STRING_INTO(name, isLong) \
     do { \
         if (isLong) { \
-            READ_CONSTANT_LONG_INTO_F(name, AS_STRING); \
+            READ_BYTE_LONG_INTO_F(name, AS_STRING_READ_POS); \
         } \
         else { \
-            READ_CONSTANT_INTO_F(name, AS_STRING); \
+            READ_BYTE_INTO_F(name, AS_STRING_READ_POS); \
         } \
     } while (false)
     while(1) {
@@ -316,13 +326,21 @@ static InterpretResult run(VM* vm) {
                 }
                 break;
             }
-            case OP_GET_LOCAL: {
-                uint8_t slot = READ_BYTE();
+            case OP_GET_LOCAL:
+                longConstant = false;
+                // fall through
+            case OP_GET_LOCAL_LONG: {
+                size_t slot;
+                READ_BYTE_INTO(slot, longConstant);
                 PUSH(vm->stack[slot]);
                 break;
             }
-            case OP_SET_LOCAL: {
-                uint8_t slot = READ_BYTE();
+            case OP_SET_LOCAL:
+                longConstant = false;
+                // fall through
+            case OP_SET_LOCAL_LONG: {
+                size_t slot;
+                READ_BYTE_INTO(slot, longConstant);
                 vm->stack[slot] = PEEK(0);
                 break;
             }

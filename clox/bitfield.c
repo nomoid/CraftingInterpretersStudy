@@ -5,6 +5,10 @@
 
 void initBitfield(Bitfield* bitfield, size_t capacity) {
     bitfield->data = ALLOCATE(uint8_t, CONVERT_CAPACITY(capacity), true);
+    if (bitfield->data == NULL) {
+        // TODO out of memory
+        return;
+    }
     bitfield->capacity = capacity;
 }
 
@@ -20,6 +24,10 @@ void resizeBitfield(Bitfield* bitfield, size_t capacity) {
         uint8_t,
         CONVERT_CAPACITY(bitfield->capacity),
         CONVERT_CAPACITY(capacity));
+    if (bitfield->data == NULL) {
+        // TODO out of memory
+        return;
+    }
     bitfield->capacity = capacity;
 }
 

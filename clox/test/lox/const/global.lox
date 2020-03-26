@@ -1,3 +1,5 @@
+// Chapter 22 Challenge
+// CLOX_CONST_KEYWORD must be enabled
 var x = 3;
 x = 4;
 print x; // expect: 4

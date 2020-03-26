@@ -12,4 +12,5 @@ desired for scoping purposes, the user can add an additional temporary variable
 to achieve the desired effect.
 3. Implemented in codebase. Local consts are compile-time checked, while
 global consts are runtime-checked.
-4. TODO
+4. Implemented in codebase. Implementation similar to implementation for
+long constants - new instructions are used for local variables >= 256.

@@ -17,10 +17,23 @@ static size_t simpleInstruction(const char* name, size_t offset) {
     return offset + 1;
 }
 
-static size_t byteInstruction(const char* name, Chunk* chunk, size_t offset) {
-    uint8_t slot = chunk->code[offset + 1];
-    printf("%-16s %4d\n", name, slot);
-    return offset + 2;
+static size_t byteInstruction(const char* name, Chunk* chunk, size_t offset, bool longConstant) {
+    size_t constant;
+    size_t newOffset;
+    if (longConstant) {
+        constant = COMBINE_3WORD(
+            chunk->code[offset + 1],
+            chunk->code[offset + 2],
+            chunk->code[offset + 3]
+        );
+        newOffset = offset + 4;
+    }
+    else {
+        constant = chunk->code[offset + 1];
+        newOffset = offset + 2;
+    }
+    printf("%-16s %4" FORMAT_SIZE_T "\n", name, constant);
+    return newOffset;
 }
 
 static size_t constantInstruction(const char* name, Chunk* chunk, size_t offset, bool longConstant) {
@@ -69,8 +82,12 @@ static const char* opName(uint8_t opcode) {
             return "OP_SET_GLOBAL_LONG";
         case OP_GET_LOCAL:
             return "OP_GET_LOCAL";
+        case OP_GET_LOCAL_LONG:
+            return "OP_GET_LOCAL_LONG";
         case OP_SET_LOCAL:
             return "OP_SET_LOCAL";
+        case OP_SET_LOCAL_LONG:
+            return "OP_SET_LOCAL_LONG";
         case OP_NIL:
             return "OP_NIL";
         case OP_TRUE:
@@ -130,7 +147,10 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset) {
             return constantInstruction(opName(instruction), chunk, offset, true);
         case OP_GET_LOCAL:
         case OP_SET_LOCAL:
-            return byteInstruction(opName(instruction), chunk, offset);
+            return byteInstruction(opName(instruction), chunk, offset, false);
+        case OP_GET_LOCAL_LONG:
+        case OP_SET_LOCAL_LONG:
+            return byteInstruction(opName(instruction), chunk, offset, true);
         default: {
             const char* name = opName(instruction);
             if (name == NULL) {

@@ -1,3 +1,5 @@
+// Chapter 22 Challenge
+// CLOX_CONST_KEYWORD must be enabled
 {
     const x = 4;
     x = 5; // Error at '5': Cannot overwrite the value of a local const.
