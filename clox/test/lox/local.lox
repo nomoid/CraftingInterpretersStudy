@@ -1,0 +1,30 @@
+var x = 3;
+var y = 6;
+var z = "how are you";
+{
+    var x = "hi";
+    print x; // expect: hi
+
+    print y; // expect: 6
+    var y = 5;
+    print y; // expect: 5
+
+    print z; // expect: how are you
+    z = 9;
+    print z; // expect: 9
+
+    var q = 0;
+}
+
+// y should stay the same
+print y; // expect: 6
+// z should be updated
+print z; // expect: 9
+
+{
+    var q = 1;
+    {
+        var q = 2;
+        print q; // expect: 2
+    }
+}
