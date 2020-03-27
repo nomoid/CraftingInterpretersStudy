@@ -12,6 +12,12 @@
 #include "debug.h"
 #endif
 
+#ifdef CLOX_CUSTOM_ERROR_MESSAGE
+    #define ERROR_MSG(original, custom) (custom)
+#else
+    #define ERROR_MSG(original, custom) (original)
+#endif
+
 static void expression(Compiler* compiler);
 static void statement(Compiler* compiler);
 static void declaration(Compiler* compiler);
@@ -109,6 +115,26 @@ static void emitBytesLong(Compiler* compiler, uint8_t byte1, size_t remainder) {
 }
 #endif
 
+static void emitLoop(Compiler* compiler, size_t loopStart) {
+    emitByte(compiler, OP_LOOP);
+
+    size_t offset = currentChunk(compiler)->count - loopStart + 2;
+    if (offset > JUMP_MAX) {
+        error(compiler, "Loop body too large.");
+    }
+
+    emitByte(compiler, BYTE_FROM_2WORD(offset, 0));
+    emitByte(compiler, BYTE_FROM_2WORD(offset, 1));
+}
+
+static size_t emitJump(Compiler* compiler, uint8_t instruction) {
+    emitByte(compiler, instruction);
+    // To be pached
+    emitByte(compiler, 0xFF);
+    emitByte(compiler, 0xFF);
+    return currentChunk(compiler)->count - 2;
+}
+
 static void emitReturn(Compiler* compiler) {
     emitByte(compiler, OP_RETURN);
 }
@@ -117,7 +143,7 @@ static void endCompiler(Compiler* compiler) {
     emitReturn(compiler);
 #ifdef DEBUG_PRINT_CODE
     if (!compiler->parser.hadError) {
-        disassembleChunk(currentChunk(parser), "code");
+        disassembleChunk(currentChunk(compiler), "code");
     }
 #endif
 }
@@ -143,6 +169,16 @@ static void emitConstant(Compiler* compiler, Value value) {
     if (constant < 0) {
         error(compiler, "Too many constants in one chunk.");
     }
+}
+
+static void patchJump(Compiler* compiler, size_t offset) {
+    size_t jump = currentChunk(compiler)->count - offset - 2;
+    if (jump > JUMP_MAX) {
+        error(compiler, "Too much code to jump over.");
+    }
+
+    currentChunk(compiler)->code[offset] = BYTE_FROM_2WORD(jump, 0);
+    currentChunk(compiler)->code[offset + 1] = BYTE_FROM_2WORD(jump, 1);
 }
 
 static size_t identifierConstant(Compiler* compiler, Token* name) {
@@ -277,6 +313,27 @@ static void defineVariable(Compiler* compiler, size_t global, bool constDecl) {
     }
 }
 
+static void and_(Compiler* compiler, bool canAssign) {
+    UNUSED(canAssign);
+    size_t endJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+
+    emitByte(compiler, OP_POP);
+    parsePrecedence(compiler, PREC_AND);
+
+    patchJump(compiler, endJump);
+}
+
+static void or_(Compiler* compiler, bool canAssign) {
+    UNUSED(canAssign);
+    size_t elseJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+    size_t endJump = emitJump(compiler, OP_JUMP);
+
+    patchJump(compiler, elseJump);
+    emitByte(compiler, OP_POP);
+
+    parsePrecedence(compiler, PREC_OR);
+    patchJump(compiler, endJump);
+}
 
 static void number(Compiler* compiler, bool canAssign) {
     UNUSED(canAssign);
@@ -327,7 +384,7 @@ static void namedVariable(Compiler* compiler, Token name, bool canAssign) {
             return;
         }
 #endif
-        else {    
+        else {
             setOp = OP_SET_LOCAL;
             getOp = OP_GET_LOCAL;
         }
@@ -474,7 +531,7 @@ ParseRule rules[] = {
 #ifdef CLOX_INTEGER_TYPE
   { number,   NULL,    PREC_NONE },       // TOKEN_INTEGER
 #endif
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_AND
+  { NULL,     and_,    PREC_NONE },       // TOKEN_AND
   { NULL,     NULL,    PREC_NONE },       // TOKEN_CLASS
   { NULL,     NULL,    PREC_NONE },       // TOKEN_ELSE
   { literal,  NULL,    PREC_NONE },       // TOKEN_FALSE
@@ -482,7 +539,7 @@ ParseRule rules[] = {
   { NULL,     NULL,    PREC_NONE },       // TOKEN_FUN
   { NULL,     NULL,    PREC_NONE },       // TOKEN_IF
   { literal,  NULL,    PREC_NONE },       // TOKEN_NIL
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_OR
+  { NULL,     or_,    PREC_NONE },        // TOKEN_OR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_PRINT
   { NULL,     NULL,    PREC_NONE },       // TOKEN_RETURN
   { NULL,     NULL,    PREC_NONE },       // TOKEN_SUPER
@@ -556,6 +613,26 @@ static void printStatement(Compiler* compiler) {
     emitByte(compiler, OP_PRINT);
 }
 
+static void whileStatement(Compiler* compiler) {
+    size_t loopStart = currentChunk(compiler)->count;
+
+    consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    expression(compiler);
+    consume(compiler, TOKEN_RIGHT_PAREN, ERROR_MSG(
+        "Expect ')' after condition.",
+        "Expect ')' after 'while' condition."));
+    
+    size_t exitJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+
+    emitByte(compiler, OP_POP);
+    statement(compiler);
+
+    emitLoop(compiler, loopStart);
+
+    patchJump(compiler, exitJump);
+    emitByte(compiler, OP_POP);
+}
+
 static void synchronize(Compiler* compiler) {
     compiler->parser.panicMode = false;
 
@@ -589,9 +666,99 @@ static void expressionStatement(Compiler* compiler) {
     emitByte(compiler, OP_POP);
 }
 
+static void forStatement(Compiler* compiler) {
+    beginScope(compiler);
+
+    consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    if (match(compiler, TOKEN_SEMICOLON)) {
+        // No initializer.
+    }
+    else if (match(compiler, TOKEN_VAR)) {
+        varDeclaration(compiler, false);
+    }
+#ifdef CLOX_CONST_KEYWORD
+    else if (match(compiler, TOKEN_CONST)) {
+        varDeclaration(compiler, true);
+    }
+#endif
+    else {
+        expressionStatement(compiler);
+    }
+
+    size_t loopStart = currentChunk(compiler)->count;
+
+    size_t exitJump = (size_t) -1;
+
+    if (!match(compiler, TOKEN_SEMICOLON)) {
+        expression(compiler);
+        consume(compiler, TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+
+        // Jump out of loop if condition is false
+        exitJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+        emitByte(compiler, OP_POP);
+    }
+    
+    if (!match(compiler, TOKEN_RIGHT_PAREN)) {
+        size_t bodyJump = emitJump(compiler, OP_JUMP);
+
+        size_t incrementStart = currentChunk(compiler)->count;
+        expression(compiler);
+        emitByte(compiler, OP_POP);
+        consume(compiler, TOKEN_RIGHT_PAREN,
+            "Expect ')' after 'for' clasues.");
+        
+        emitLoop(compiler, loopStart);
+        loopStart = incrementStart;
+        patchJump(compiler, bodyJump);
+    }
+
+    statement(compiler);
+
+    emitLoop(compiler, loopStart);
+
+    if (exitJump != (size_t) -1) {
+        patchJump(compiler, exitJump);
+        emitByte(compiler, OP_POP);
+    }
+
+    endScope(compiler);
+}
+
+static void ifStatement(Compiler* compiler) {
+    consume(compiler, TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+    expression(compiler);
+    consume(compiler, TOKEN_RIGHT_PAREN, ERROR_MSG(
+        "Expect ')' after condition.",
+        "Expect ')' after 'if' condition."));
+
+    size_t thenJump = emitJump(compiler, OP_JUMP_IF_FALSE);
+    emitByte(compiler, OP_POP);
+    statement(compiler);
+
+    size_t elseJump = emitJump(compiler, OP_JUMP);
+
+    patchJump(compiler, thenJump);
+    emitByte(compiler, OP_POP);
+
+    if (match(compiler, TOKEN_ELSE)) {
+        statement(compiler);
+    }
+
+    patchJump(compiler, elseJump);
+}
+
 static void statement(Compiler* compiler) {
     if (match(compiler, TOKEN_PRINT)) {
         printStatement(compiler);
+    }
+    else if (match(compiler, TOKEN_IF)) {
+        ifStatement(compiler);
+    }
+    else if (match(compiler, TOKEN_WHILE)) {
+        whileStatement(compiler);
+    }
+    else if (match(compiler, TOKEN_FOR)) {
+        forStatement(compiler);
     }
     else if (match(compiler, TOKEN_LEFT_BRACE)) {
         beginScope(compiler);

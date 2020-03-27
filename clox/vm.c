@@ -134,51 +134,19 @@ static void concatenate(VM* vm) {
 }
 
 static InterpretResult run(VM* vm) {
+
+// Reads
 #define READ_BYTE() (*vm->ip++)
 #define READ_CONSTANT() (vm->chunk->constants.values[READ_BYTE()])
-#define READ_CONSTANT_POS(pos) (vm->chunk->constants.values[(pos)])
-#define READ_BYTE_INTO_F(name, f) \
-    do { \
-        name = f(READ_BYTE()); \
-    } while(false)
-#define READ_BYTE_LONG_INTO_F(name, f) \
-    do { \
-        uint8_t v1 = READ_BYTE(); \
-        uint8_t v2 = READ_BYTE(); \
-        uint8_t v3 = READ_BYTE(); \
-        name = f( \
-            COMBINE_3WORD(v1, v2, v3)); \
-    } while(false)
-#define READ_BYTE_INTO(name, isLong) \
-    do { \
-        if (isLong) { \
-            READ_BYTE_LONG_INTO_F(name,); \
-        } \
-        else { \
-            READ_BYTE_INTO_F(name,); \
-        } \
-    } while (false)
-#define READ_CONSTANT_INTO(name, isLong) \
-    do { \
-        if (isLong) { \
-            READ_BYTE_LONG_INTO_F(name, READ_CONSTANT_POS); \
-        } \
-        else { \
-            READ_BYTE_INTO_F(name, READ_CONSTANT_POS); \
-        } \
-    } while (false)
+#define READ_SHORT() (vm->ip += 2, \
+    (uint16_t)(COMBINE_2WORD(vm->ip[-2], vm->ip[-1])))
+#define READ_LONG_BYTE() (vm->ip += 3, \
+    (size_t)(COMBINE_3WORD(vm->ip[-3], vm->ip[-2], vm->ip[-1])))
+#define READ_LONG_CONSTANT() (vm->chunk->constants.values[READ_LONG_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
-#define AS_STRING_READ_POS(pos) AS_STRING(READ_CONSTANT_POS(pos))
-#define READ_STRING_INTO(name, isLong) \
-    do { \
-        if (isLong) { \
-            READ_BYTE_LONG_INTO_F(name, AS_STRING_READ_POS); \
-        } \
-        else { \
-            READ_BYTE_INTO_F(name, AS_STRING_READ_POS); \
-        } \
-    } while (false)
-    while(1) {
+#define READ_LONG_STRING() AS_STRING(READ_LONG_CONSTANT())
+
+// Operations
 #define PUSH(value) (push(vm, (value)))
 #define POP() (pop(vm))
 #define PEEK(value) (peek(vm, (value)))
@@ -225,7 +193,11 @@ static InterpretResult run(VM* vm) {
     #define BINARY_OP_BOOL(op) BINARY_OP(BOOL_VAL, op)
     #define BINARY_OP_DIVIDE(op) BINARY_OP_NUMBER(op)
 #endif
+
+    // Begin VM Loop
+    while(1) {
 #ifdef DEBUG_TRACE_EXECUTION
+        // Print execution trace
         printf("          ");
         for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
             printf("[ ");
@@ -243,7 +215,12 @@ static InterpretResult run(VM* vm) {
                 // fall through
             case OP_CONSTANT_LONG: {
                 Value constant;
-                READ_CONSTANT_INTO(constant, longConstant);
+                if (longConstant) {
+                    constant = READ_LONG_CONSTANT();
+                }
+                else {
+                    constant = READ_CONSTANT();
+                }
                 PUSH(constant);
                 break;
             }
@@ -252,7 +229,12 @@ static InterpretResult run(VM* vm) {
                 // fall through
             case OP_DEFINE_GLOBAL_LONG: {
                 ObjString* name;
-                READ_STRING_INTO(name, longConstant);
+                if (longConstant) {
+                    name = READ_LONG_STRING();
+                }
+                else {
+                    name = READ_STRING();
+                }
 #ifdef CLOX_CONST_KEYWORD
                 Value placeholder;
                 if (tableGet(&vm->constGlobals, OBJ_VAL(name), &placeholder)) {
@@ -272,7 +254,12 @@ static InterpretResult run(VM* vm) {
                 // fall through
             case OP_DEFINE_GLOBAL_CONST_LONG: {
                 ObjString* name;
-                READ_STRING_INTO(name, longConstant);
+                if (longConstant) {
+                    name = READ_LONG_STRING();
+                }
+                else {
+                    name = READ_STRING();
+                }
 #ifdef CLOX_CONST_KEYWORD
                 Value placeholder;
                 if (tableGet(&vm->constGlobals, OBJ_VAL(name), &placeholder)) {
@@ -295,7 +282,12 @@ static InterpretResult run(VM* vm) {
                 // fall through
             case OP_GET_GLOBAL_LONG: {
                 ObjString* name;
-                READ_STRING_INTO(name, longConstant); 
+                if (longConstant) {
+                    name = READ_LONG_STRING();
+                }
+                else {
+                    name = READ_STRING();
+                }
                 Value value;
                 if (!tableGet(&vm->globals, OBJ_VAL(name), &value)) {
                     runtimeError(vm, "Undefined variable %s.", name->chars);
@@ -309,7 +301,12 @@ static InterpretResult run(VM* vm) {
                 // fall through
             case OP_SET_GLOBAL_LONG: {
                 ObjString* name;
-                READ_STRING_INTO(name, longConstant);
+                if (longConstant) {
+                    name = READ_LONG_STRING();
+                }
+                else {
+                    name = READ_STRING();
+                }
 #ifdef CLOX_CONST_KEYWORD
                 Value placeholder;
                 if (tableGet(&vm->constGlobals, OBJ_VAL(name), &placeholder)) {
@@ -331,7 +328,12 @@ static InterpretResult run(VM* vm) {
                 // fall through
             case OP_GET_LOCAL_LONG: {
                 size_t slot;
-                READ_BYTE_INTO(slot, longConstant);
+                if (longConstant) {
+                    slot = READ_LONG_BYTE();
+                }
+                else {
+                    slot = READ_BYTE();
+                }
                 PUSH(vm->stack[slot]);
                 break;
             }
@@ -340,7 +342,12 @@ static InterpretResult run(VM* vm) {
                 // fall through
             case OP_SET_LOCAL_LONG: {
                 size_t slot;
-                READ_BYTE_INTO(slot, longConstant);
+                if (longConstant) {
+                    slot = READ_LONG_BYTE();
+                }
+                else {
+                    slot = READ_BYTE();
+                }
                 vm->stack[slot] = PEEK(0);
                 break;
             }
@@ -387,6 +394,23 @@ static InterpretResult run(VM* vm) {
                 printf("\n");
                 break;
             }
+            case OP_JUMP: {
+                uint16_t offset = READ_SHORT();
+                vm->ip += offset;
+                break;
+            }
+            case OP_JUMP_IF_FALSE: {
+                uint16_t offset = READ_SHORT();
+                if (isFalsey(PEEK(0))) {
+                    vm->ip += offset;
+                }
+                break;
+            }
+            case OP_LOOP: {
+                uint16_t offset = READ_SHORT();
+                vm->ip -= offset;
+                break;
+            }
             case OP_RETURN: {
                 // Exit interpreter
                 return INTERPRET_OK;
@@ -395,11 +419,11 @@ static InterpretResult run(VM* vm) {
     }
 #undef READ_BYTE
 #undef READ_CONSTANT
-#undef READ_CONSTANT_POS
-#undef READ_CONSTANT_LONG_INTO_F
-#undef READ_CONSTANT_LONG_INTO
+#undef READ_SHORT
+#undef READ_LONG_BYTE
+#undef READ_LONG_CONSTANT
 #undef READ_STRING
-#undef READ_STRING_LONG_INTO
+#undef READ_LONG_STRING
 #undef PUSH
 #undef POP
 #undef BINARY_OP

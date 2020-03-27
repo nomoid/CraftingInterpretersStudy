@@ -36,7 +36,17 @@ static size_t byteInstruction(const char* name, Chunk* chunk, size_t offset, boo
     return newOffset;
 }
 
-static size_t constantInstruction(const char* name, Chunk* chunk, size_t offset, bool longConstant) {
+static size_t jumpInstruction(const char* name, int sign, Chunk* chunk,
+        size_t offset) {
+    uint16_t jump = COMBINE_2WORD(
+        chunk->code[offset + 1], chunk->code[offset + 2]);
+    printf("%-16s %4" FORMAT_SIZE_T " -> %" FORMAT_SIZE_T "\n",
+        name, offset, offset + 3 + (size_t) (sign * (int) jump));
+    return offset + 3;
+}
+
+static size_t constantInstruction(const char* name, Chunk* chunk,
+        size_t offset, bool longConstant) {
     size_t constant;
     size_t newOffset;
     if (longConstant) {
@@ -116,6 +126,12 @@ static const char* opName(uint8_t opcode) {
             return "OP_NEGATE";
         case OP_PRINT:
             return "OP_PRINT";
+        case OP_JUMP:
+            return "OP_JUMP";
+        case OP_JUMP_IF_FALSE:
+            return "OP_JUMP_IF_FALSE";
+        case OP_LOOP:
+            return "OP_LOOP";
         case OP_RETURN:
             return "OP_RETURN";
         default:
@@ -151,6 +167,11 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset) {
         case OP_GET_LOCAL_LONG:
         case OP_SET_LOCAL_LONG:
             return byteInstruction(opName(instruction), chunk, offset, true);
+        case OP_JUMP:
+        case OP_JUMP_IF_FALSE:
+            return jumpInstruction(opName(instruction), 1, chunk, offset);
+        case OP_LOOP:
+            return jumpInstruction(opName(instruction), -1, chunk, offset);
         default: {
             const char* name = opName(instruction);
             if (name == NULL) {

@@ -33,6 +33,8 @@ typedef struct {
     #define MAX_LOCAL_COUNT DEFAULT_LOCAL_COUNT
 #endif
 
+#define JUMP_MAX UINT16_MAX
+
 typedef struct Compiler {
 #ifdef CLOX_LONG_LOCALS
     Local* locals;

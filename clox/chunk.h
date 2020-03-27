@@ -49,6 +49,17 @@ typedef enum {
     OP_SET_LOCAL,
     OP_SET_LOCAL_LONG,
 
+    // Jumps to the specified offset.
+    // opcode jumpIndex1 jumpIndex2
+    OP_JUMP,
+    // Jumps to the specified offset if the top value of the stack is falsy.
+    // Does not pop the top value of the stack.
+    // opcode jumpIndex1 jumpIndex2
+    OP_JUMP_IF_FALSE,
+    // Jumps backwards by the specified offset.
+    // opcode jumpIndex1 jumpIndex2
+    OP_LOOP,
+
     // Simple instructions (take no arguments)
 
     // Pushes the specified literal to the stack.
