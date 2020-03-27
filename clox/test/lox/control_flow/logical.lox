@@ -1,0 +1,27 @@
+// Chapter 23
+
+var x;
+
+if ((x = 1) and (x = 2)) {
+    print x; // expect: 2
+}
+
+if ((x = false) and (x = 6)) {
+}
+print x; // expect: false
+
+if ((x = 7) and (x = false)) {
+}
+print x; // expect: false
+
+if ((x = 3) or (x = false)) {
+    print x; // expect: 3
+}
+
+if ((x = false) or (x = 7)) {
+    print x; // expect: 7
+}
+
+if ((x = 5) or (x = 4)) {
+    print x; // expect: 5
+}

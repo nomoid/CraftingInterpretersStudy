@@ -531,7 +531,7 @@ ParseRule rules[] = {
 #ifdef CLOX_INTEGER_TYPE
   { number,   NULL,    PREC_NONE },       // TOKEN_INTEGER
 #endif
-  { NULL,     and_,    PREC_NONE },       // TOKEN_AND
+  { NULL,     and_,    PREC_AND },       // TOKEN_AND
   { NULL,     NULL,    PREC_NONE },       // TOKEN_CLASS
   { NULL,     NULL,    PREC_NONE },       // TOKEN_ELSE
   { literal,  NULL,    PREC_NONE },       // TOKEN_FALSE
@@ -539,7 +539,7 @@ ParseRule rules[] = {
   { NULL,     NULL,    PREC_NONE },       // TOKEN_FUN
   { NULL,     NULL,    PREC_NONE },       // TOKEN_IF
   { literal,  NULL,    PREC_NONE },       // TOKEN_NIL
-  { NULL,     or_,    PREC_NONE },        // TOKEN_OR
+  { NULL,     or_,     PREC_OR },        // TOKEN_OR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_PRINT
   { NULL,     NULL,    PREC_NONE },       // TOKEN_RETURN
   { NULL,     NULL,    PREC_NONE },       // TOKEN_SUPER

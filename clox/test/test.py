@@ -9,6 +9,7 @@ from os.path import abspath, basename, dirname, isdir, isfile, join, realpath, r
 import re
 from subprocess import Popen, PIPE
 import sys
+import time
 
 import term
 
@@ -300,17 +301,20 @@ def run_suite():
     num_skipped = 0
     expectations = 0
 
+    start_time = time.time()
     walk(join(REPO_DIR, 'clox', 'test', 'lox'), run_script)
+    time_passed = time.time() - start_time
+
     term.print_line()
     
     print()
 
     if failed == 0:
-        print('All {} tests passed ({} expectations).'.format(
-            term.green(passed), str(expectations)))
+        print('All {} tests passed ({} expectations) in {:.2f} seconds.'.format(
+            term.green(passed), str(expectations), time_passed))
     else:
-        print('{} tests passed. {} tests failed.'.format(
-            term.green(passed), term.red(failed)))
+        print('{} tests passed and {} tests failed in {:.2f} seconds.'.format(
+            term.green(passed), term.red(failed), time_passed))
 
     return failed == 0
 

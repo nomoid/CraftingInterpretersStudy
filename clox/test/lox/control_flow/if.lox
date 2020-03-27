@@ -1,0 +1,12 @@
+// Chapter 23
+var x = 0;
+var y = 1;
+if (x < 10) {
+    print "x is less than 10"; // expect: x is less than 10
+    if (y > x) {
+        print "y is greater than x"; // expect: y is greater than x
+    }
+}
+else {
+    print "x is greater than 10";
+}
